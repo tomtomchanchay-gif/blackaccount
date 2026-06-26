@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ปลดอายัติ.com</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --indigo:#4A3AFF;--indigo-deep:#2E1F8C;--gold:#F2A93B;--coral:#FF6F59;
+    --bg:#FAF7F2;--surface:rgba(255,255,255,0.7);--surface-solid:#FFFFFF;
+    --border:rgba(46,31,76,0.09);--border-strong:rgba(46,31,76,0.18);
+    --text-primary:#211A3D;--text-secondary:#655D82;--text-muted:#9590AD;
+    --radius:16px;--radius-sm:11px;
+    --font:"Noto Sans Thai","Inter",-apple-system,sans-serif;--font-mono:"IBM Plex Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--bg);font-family:var(--font);color:var(--text-primary);min-height:100vh;overflow-x:hidden;position:relative;}
+  #bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+  #bgfx::before{content:'';position:absolute;top:-20%;right:-10%;width:60%;height:60%;border-radius:50%;background:radial-gradient(circle,rgba(74,58,255,0.10),transparent 70%);filter:blur(40px);}
+  #bgfx::after{content:'';position:absolute;bottom:-15%;left:-10%;width:55%;height:55%;border-radius:50%;background:radial-gradient(circle,rgba(242,169,59,0.12),transparent 70%);filter:blur(40px);}
+  .wrap{position:relative;z-index:2;}
+  #topnav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:16px 32px;background:rgba(250,247,242,0.85);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);}
+  #topnav .brand{display:flex;align-items:center;gap:11px;cursor:pointer;}
+  #topnav .brand span{font-size:18px;font-weight:800;color:var(--text-primary);}
+  .navlinks{display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+  .navlinks button{background:transparent;border:none;color:var(--text-secondary);font-family:var(--font);font-size:13.5px;font-weight:600;padding:9px 15px;border-radius:var(--radius-sm);cursor:pointer;transition:all .25s ease;}
+  .navlinks button:hover{background:rgba(46,31,76,0.05);color:var(--text-primary);}
+  .navlinks button.active{background:rgba(74,58,255,0.1);color:var(--indigo);}
+  .page{padding:120px 32px 60px;max-width:1080px;margin:0 auto;}
+  .glass{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);backdrop-filter:blur(16px);box-shadow:0 4px 24px -8px rgba(46,31,76,0.06);}
+  h1,h2,h3{font-weight:800;letter-spacing:-0.015em;color:var(--text-primary);}
+  .btn-primary{background:linear-gradient(135deg,var(--indigo),#6A4FFF);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font);font-weight:800;font-size:14.5px;padding:14px 26px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:transform .18s ease,box-shadow .3s ease;box-shadow:0 6px 18px -6px rgba(74,58,255,0.45);}
+  .btn-primary:hover{transform:translateY(-3px);box-shadow:0 14px 32px -8px rgba(74,58,255,0.55);}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+  .btn-ghost{background:rgba(255,255,255,0.5);border:1.5px solid var(--border-strong);color:var(--text-primary);border-radius:var(--radius-sm);font-family:var(--font);font-size:14px;font-weight:700;padding:11px 20px;cursor:pointer;transition:all .25s ease;display:inline-flex;align-items:center;gap:8px;}
+  .btn-ghost:hover{background:#fff;border-color:var(--indigo);}
+  .btn-google{background:#fff;color:#1f1f1f;border:1px solid rgba(46,31,76,0.12);border-radius:var(--radius-sm);font-family:var(--font);font-weight:700;font-size:14.5px;padding:14px 22px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;width:100%;justify-content:center;transition:transform .2s ease,box-shadow .3s ease;}
+  .btn-google:hover{transform:translateY(-3px);box-shadow:0 12px 26px -6px rgba(46,31,76,0.18);}
+  input[type=text],textarea{width:100%;background:rgba(255,255,255,0.65);border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--text-primary);font-family:var(--font);font-size:14.5px;padding:14px 16px;outline:none;transition:all .25s ease;}
+  input:focus,textarea:focus{border-color:var(--indigo);box-shadow:0 0 0 5px rgba(74,58,255,0.12);background:#fff;}
+  textarea{resize:vertical;min-height:84px;}
+  .chip-select{display:flex;align-items:center;gap:10px;padding:15px 16px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);background:rgba(255,255,255,0.45);cursor:pointer;transition:all .22s ease;font-size:14px;color:var(--text-secondary);font-weight:600;}
+  .chip-select:hover{background:#fff;}
+  .chip-select.sel{border-color:var(--indigo);background:rgba(74,58,255,0.08);color:var(--indigo-deep);font-weight:800;}
+  .pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(242,169,59,.5)}70%{box-shadow:0 0 0 9px rgba(242,169,59,0)}100%{box-shadow:0 0 0 0 rgba(242,169,59,0)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  .fade-up{animation:fadeup .45s cubic-bezier(.16,1,.3,1);}
+  #sos-btn{position:fixed;bottom:24px;right:24px;z-index:60;background:linear-gradient(135deg,var(--coral),#E8503D);color:#fff;border:none;border-radius:50px;padding:15px 22px;font-family:var(--font);font-weight:800;font-size:14px;display:flex;align-items:center;gap:9px;cursor:pointer;box-shadow:0 10px 28px -6px rgba(255,111,89,0.55);}
+  ::-webkit-scrollbar{width:10px;}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;}
+  @media (max-width:760px){.navlinks{display:none;}.page{padding:104px 18px 50px;}}
+</style>
+</head>
+<body>
+
+<div id="bgfx"></div>
+<div id="root"><div style="padding:60px;text-align:center;color:var(--text-secondary);">กำลังโหลดระบบ...</div></div>
+
+<!-- =====================================================================
+     ตั้งค่า Supabase ตรงนี้ (ใส่ค่า 2 อย่างจากหน้า Settings > API ของ Supabase)
+     ถ้าปล่อยว่างไว้ ระบบจะทำงานแบบ local เก็บข้อมูลในเครื่องแทน (ใช้ทดสอบได้)
+     ===================================================================== -->
+<script>
+  window.SUPABASE_URL = "https://ssjngqwsibvaeumomwgi.supabase.co";
+  window.SUPABASE_ANON_KEY = "sb_publishable_JCU8lrENCv7oWLd63v5wMA_RTPT3DHA";
+</script>
+
+<script type="text/app" id="appcode">
+const { useState, useEffect, useRef } = React;
+
+const USE_SUPABASE = !!(window.SUPABASE_URL && window.SUPABASE_ANON_KEY && window.supabase);
+let sb = null;
+let currentUser = null;
+if (USE_SUPABASE) {
+  try { sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY); }
+  catch (e) { console.error("Supabase init failed:", e); }
+}
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function nowISO(){ return new Date().toISOString(); }
+
+const LOCAL_KEY = "pordaiyat_local_v1";
+function localGet(){ try{ return JSON.parse(localStorage.getItem(LOCAL_KEY) || "null"); }catch(e){ return null; } }
+function localSet(v){ try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(v)); }catch(e){} }
+
+/* ===== ฐานข้อมูล: เคส / ไทม์ไลน์ / เอกสาร / การจองคิว ===== */
+const db = {
+  async listCases(){
+    if (sb && currentUser){
+      const { data, error } = await sb.from("cases").select("*").eq("user_id", currentUser.id).order("created_at",{ascending:false});
+      if (error) { console.error(error); return []; }
+      return data || [];
+    }
+    const local = localGet();
+    return (local && local.cases) || [];
+  },
+  async insertCase(c){
+    const row = { ...c, id: uid(), created_at: nowISO() };
+    if (sb && currentUser){
+      row.user_id = currentUser.id;
+      const { data, error } = await sb.from("cases").insert(row).select().single();
+      if (error){ console.error(error); return row; }
+      return data;
+    }
+    const local = localGet() || { cases:[], events:[], docs:[] };
+    local.cases = [row, ...(local.cases||[])];
+    localSet(local);
+    return row;
+  },
+  async listEvents(caseId){
+    if (sb && currentUser){
+      const { data, error } = await sb.from("timeline_events").select("*").eq("case_id", caseId).order("event_time",{ascending:true});
+      if (error){ console.error(error); return []; }
+      return data || [];
+    }
+    const local = localGet();
+    return ((local && local.events) || []).filter(e=>e.case_id===caseId);
+  },
+  async insertEvent(caseId, text){
+    const row = { id: uid(), case_id: caseId, event_text: text, event_time: nowISO() };
+    if (sb && currentUser){
+      row.user_id = currentUser.id;
+      const { data, error } = await sb.from("timeline_events").insert(row).select().single();
+      if (error){ console.error(error); return row; }
+      return data;
+    }
+    const local = localGet() || { cases:[], events:[], docs:[] };
+    local.events = [...(local.events||[]), row];
+    localSet(local);
+    return row;
+  },
+  async listDocs(){
+    if (sb && currentUser){
+      const { data, error } = await sb.from("documents").select("*").eq("user_id", currentUser.id).order("created_at",{ascending:false});
+      if (error){ console.error(error); return []; }
+      return data || [];
+    }
+    const local = localGet();
+    return (local && local.docs) || [];
+  },
+  async insertDoc(file){
+    const row = { id: uid(), file_name: file.name, file_size: file.size, created_at: nowISO() };
+    if (sb && currentUser){
+      row.user_id = currentUser.id;
+      const path = currentUser.id + "/" + Date.now() + "-" + file.name;
+      const { error: upErr } = await sb.storage.from("documents").upload(path, file);
+      if (!upErr) row.storage_path = path;
+      const { data, error } = await sb.from("documents").insert(row).select().single();
+      if (error){ console.error(error); return row; }
+      return data;
+    }
+    const local = localGet() || { cases:[], events:[], docs:[] };
+    local.docs = [row, ...(local.docs||[])];
+    localSet(local);
+    return row;
+  },
+  async insertBooking(b){
+    const row = { ...b, id: uid(), created_at: nowISO() };
+    if (sb){
+      row.user_id = currentUser ? currentUser.id : null;
+      const { data, error } = await sb.from("bookings").insert(row).select().single();
+      if (error){ console.error(error); return row; }
+      return data;
+    }
+    const local = localGet() || { cases:[], events:[], docs:[], bookings:[] };
+    local.bookings = [row, ...(local.bookings||[])];
+    localSet(local);
+    return row;
+  }
+};
+
+/* ===== โปรไฟล์วิเคราะห์เคสแต่ละประเภท ===== */
+const PROFILES = {
+  "อายัดจากธนาคาร": { pct:62, label:"ปานกลาง", color:"#EF9F27",
+    desc:"ควรเริ่มเตรียมเอกสารและติดต่อธนาคารภายใน 2-3 วัน เพื่อไม่ให้เคสล่าช้า",
+    steps:["ติดต่อธนาคารเพื่อสอบถามสาเหตุการอายัด","ขอหนังสือแจ้งอายัดอย่างเป็นทางการ","เตรียมเอกสารยืนยันตัวตนและหลักฐานธุรกรรม"]},
+  "ถูกระงับสงสัยม้า": { pct:84, label:"เร่งด่วนมาก", color:"#E24B4A",
+    desc:"กรณีนี้มีความซับซ้อนสูง ควรดำเนินการโดยเร็วที่สุดเพื่อป้องกันผลกระทบต่อประวัติทางการเงิน",
+    steps:["ติดต่อธนาคารและขอเอกสารยืนยันสถานะบัญชี","รวบรวมหลักฐานการใช้บัญชีจริงทั้งหมด","พิจารณาปรึกษาผู้เชี่ยวชาญหากเอกสารไม่เพียงพอ"]},
+  "โอนเงินผิดบัญชี": { pct:70, label:"เร่งด่วน", color:"#EF9F27",
+    desc:"ยิ่งแจ้งเร็ว โอกาสได้เงินคืนยิ่งสูง ควรติดต่อธนาคารต้นทางทันที",
+    steps:["โทรแจ้งธนาคารต้นทางทันทีพร้อมเลขที่อ้างอิงการโอน","แจ้งความที่สถานีตำรวจเพื่อออกใบรับแจ้งความ","ติดตามผลผ่านธนาคารทุก 2-3 วัน"]},
+  "ถูกหลอกโอนเงิน": { pct:88, label:"เร่งด่วนมาก", color:"#E24B4A",
+    desc:"ทุกนาทีมีความหมาย ควรอายัดปลายทางให้เร็วที่สุดผ่านสายด่วนหรือธนาคาร",
+    steps:["โทรสายด่วน 1441 หรือธนาคารเพื่ออายัดบัญชีปลายทาง","แจ้งความออนไลน์ที่ thaipoliceonline.go.th","เก็บหลักฐานแชทและสลิปโอนเงินทั้งหมด"]}
+};
+const EVENT_OPTIONS = [
+  {val:"อายัดจากธนาคาร", icon:"ti-building-bank", label:"บัญชีถูกอายัด"},
+  {val:"ถูกระงับสงสัยม้า", icon:"ti-alert-triangle", label:"สงสัยเป็นบัญชีม้า"},
+  {val:"โอนเงินผิดบัญชี", icon:"ti-transfer", label:"โอนเงินผิดบัญชี"},
+  {val:"ถูกหลอกโอนเงิน", icon:"ti-user-exclamation", label:"ถูกหลอกให้โอนเงิน"}
+];
+
+/* ===== Top navigation ===== */
+const PAGES = [
+  {id:"home", label:"วิเคราะห์เคส"},
+  {id:"dashboard", label:"แดชบอร์ด"},
+  {id:"documents", label:"เอกสาร"},
+  {id:"timeline", label:"ไทม์ไลน์"},
+  {id:"knowledge", label:"ความรู้"},
+  {id:"help", label:"ช่วยเหลือ / แพ็กเกจ"}
+];
+
+function TopNav({ view, setView, session }){
+  return React.createElement("nav", {id:"topnav"},
+    React.createElement("div", {className:"brand", onClick:()=>setView("home")},
+      React.createElement("svg", {width:36, height:36, viewBox:"0 0 40 40", fill:"none"},
+        React.createElement("defs", null, React.createElement("linearGradient", {id:"lg", x1:4,y1:4,x2:36,y2:36, gradientUnits:"userSpaceOnUse"},
+          React.createElement("stop", {offset:"0%", stopColor:"#6A4FFF"}),
+          React.createElement("stop", {offset:"100%", stopColor:"#2E1F8C"}))),
+        React.createElement("rect", {x:2,y:2,width:36,height:36,rx:11,fill:"url(#lg)"}),
+        React.createElement("path", {d:"M14 19V15.5C14 12.46 16.46 10 19.5 10C22.13 10 24.33 11.85 24.85 14.35", stroke:"#F2A93B", strokeWidth:2.4, strokeLinecap:"round", fill:"none"}),
+        React.createElement("rect", {x:12.5,y:19,width:15,height:11.5,rx:3.2,fill:"#FAF7F2"}),
+        React.createElement("circle", {cx:20,cy:24,r:2.1,fill:"#2E1F8C"}),
+        React.createElement("path", {d:"M20 25.6V27.6", stroke:"#2E1F8C", strokeWidth:1.7, strokeLinecap:"round"})),
+      React.createElement("span", null, "ปลดอายัติ", React.createElement("span", {style:{color:"var(--text-muted)",fontWeight:600}}, ".com"))
+    ),
+    React.createElement("div", {className:"navlinks"},
+      PAGES.map(p => React.createElement("button", {key:p.id, className:view===p.id?"active":"", onClick:()=>setView(p.id)}, p.label)),
+      session ? React.createElement("button", {onClick:()=>sb.auth.signOut()}, "ออกจากระบบ") : null
+    )
+  );
+}
+
+/* ===== หน้าแรก: วิเคราะห์เคส ===== */
+function HomePage({ setView, session, refreshCases }){
+  const [step, setStep] = useState("form");
+  const [selected, setSelected] = useState(null);
+  const [eventDate, setEventDate] = useState("");
+  const [detail, setDetail] = useState("");
+  const [savedMsg, setSavedMsg] = useState("");
+
+  const analyze = () => {
+    if (!selected) { alert("กรุณาเลือกประเภทเหตุการณ์ก่อนครับ"); return; }
+    setStep("loading");
+    setTimeout(()=>setStep("result"), 1800);
+  };
+
+  const saveCase = async () => {
+    if (!selected) return;
+    const p = PROFILES[selected];
+    if (USE_SUPABASE && !session){
+      try { await sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: window.location.origin + window.location.pathname } }); }
+      catch(e){ alert("เข้าสู่ระบบไม่สำเร็จ: " + (e&&e.message)); }
+      return;
+    }
+    await db.insertCase({ event_type:selected, event_date:eventDate, detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
+    setSavedMsg("บันทึกเคสนี้แล้ว ดูได้ที่เมนู แดชบอร์ด");
+    if (refreshCases) refreshCases();
+  };
+
+  const p = selected ? PROFILES[selected] : null;
+  const circ = 239;
+  const offset = p ? circ - (circ*p.pct/100) : circ;
+
+  if (step === "form") return React.createElement("div", {className:"fade-up"},
+    React.createElement("div", {style:{textAlign:"center",maxWidth:640,margin:"0 auto 2.5rem"}},
+      React.createElement("div", {style:{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(242,169,59,0.14)",border:"1.5px solid rgba(242,169,59,0.35)",borderRadius:30,padding:"7px 18px",marginBottom:"1.75rem"}},
+        React.createElement("span",{className:"pulse-dot"}),
+        React.createElement("span",{style:{fontSize:13,color:"#B5750A",fontWeight:700}}, "วิเคราะห์ได้ทันที ไม่ต้องสมัครก่อน")),
+      React.createElement("h1", {style:{fontSize:"clamp(28px,5vw,42px)",lineHeight:1.25,marginBottom:"1rem"}},
+        "บัญชีถูกอายัด?", React.createElement("br"),
+        React.createElement("span",{style:{background:"linear-gradient(135deg,var(--indigo),#8A6FFF 60%,var(--gold))",WebkitBackgroundClip:"text",backgroundClip:"text",color:"transparent"}}, "เล่าให้เราฟัง แล้วรู้ทันที")),
+      React.createElement("p",{style:{fontSize:15.5,color:"var(--text-secondary)",lineHeight:1.75}}, "กรอกแค่ 3 อย่าง ระบบวิเคราะห์สถานการณ์และบอกขั้นตอนที่ต้องทำให้คุณภายในไม่กี่วินาที")
+    ),
+    React.createElement("div",{className:"glass", style:{maxWidth:580,margin:"0 auto",padding:"2.1rem"}},
+      React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--text-secondary)",marginBottom:11}}, "1. เกิดอะไรขึ้นกับบัญชีของคุณ"),
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:11,marginBottom:"1.6rem"}},
+        EVENT_OPTIONS.map(o => React.createElement("div",{key:o.val, className:"chip-select"+(selected===o.val?" sel":""), onClick:()=>setSelected(o.val)},
+          React.createElement("i",{className:"ti "+o.icon, style:{fontSize:18}}), o.label))),
+      React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--text-secondary)",marginBottom:11}}, "2. ทราบเรื่องตั้งแต่เมื่อไร"),
+      React.createElement("input",{type:"text", placeholder:"เช่น เมื่อวานนี้ หรือ 15 มิถุนายน 2569", value:eventDate, onChange:e=>setEventDate(e.target.value), style:{marginBottom:"1.6rem"}}),
+      React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--text-secondary)",marginBottom:11}}, "3. เล่ารายละเอียดสั้นๆ"),
+      React.createElement("textarea",{placeholder:"เช่น ได้รับ SMS แจ้งว่าบัญชีถูกอายัด ไม่ทราบสาเหตุ ยังไม่ได้ติดต่อธนาคาร", value:detail, onChange:e=>setDetail(e.target.value)}),
+      React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center",marginTop:"1.85rem",fontSize:15.5,padding:16}, onClick:analyze},
+        React.createElement("i",{className:"ti ti-bolt"}), "วิเคราะห์ทันที"),
+      React.createElement("p",{style:{textAlign:"center",fontSize:11.5,color:"var(--text-muted)",marginTop:11}}, "ไม่ใช่บริษัทรับปลดอายัด ไม่ใช่สำนักงานกฎหมาย ไม่เก็บข้อมูลจนกว่าคุณจะเข้าสู่ระบบ")
+    )
+  );
+
+  if (step === "loading") return React.createElement("div",{style:{textAlign:"center",padding:"5rem 0"}},
+    React.createElement("div",{style:{width:60,height:60,margin:"0 auto 1.5rem",border:"3px solid var(--border-strong)",borderTopColor:"var(--indigo)",borderRadius:"50%",animation:"spin .85s linear infinite"}}),
+    React.createElement("p",{style:{fontSize:16,fontWeight:800}}, "กำลังวิเคราะห์สถานการณ์ของคุณ..."));
+
+  return React.createElement("div",{className:"fade-up"},
+    React.createElement("div",{className:"glass", style:{maxWidth:680,margin:"0 auto 1.5rem",padding:"1.85rem 2.1rem"}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.3rem"}},
+        React.createElement("span",{style:{fontSize:13,color:"var(--text-secondary)",fontWeight:800}}, "ผลวิเคราะห์เบื้องต้น"),
+        React.createElement("span",{style:{fontSize:11,background:"rgba(74,58,255,0.12)",color:"var(--indigo)",padding:"4px 11px",borderRadius:20,fontWeight:800}}, "เสร็จแล้ว")),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:"1.6rem",marginBottom:"1.6rem",flexWrap:"wrap"}},
+        React.createElement("div",{style:{position:"relative",width:90,height:90,flexShrink:0}},
+          React.createElement("svg",{width:90,height:90,viewBox:"0 0 90 90",style:{transform:"rotate(-90deg)"}},
+            React.createElement("circle",{cx:45,cy:45,r:38,fill:"none",stroke:"rgba(46,31,76,0.08)",strokeWidth:8}),
+            React.createElement("circle",{cx:45,cy:45,r:38,fill:"none",stroke:p.color,strokeWidth:8,strokeLinecap:"round",strokeDasharray:circ,strokeDashoffset:offset})),
+          React.createElement("div",{style:{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,fontWeight:800}}, p.pct+"%")),
+        React.createElement("div",{style:{flex:1,minWidth:200}},
+          React.createElement("p",{style:{fontSize:15.5,fontWeight:800,marginBottom:5}}, "ระดับความเร่งด่วน: "+p.label),
+          React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)",lineHeight:1.65}}, p.desc))),
+      React.createElement("div",{style:{borderTop:"1px solid var(--border)",paddingTop:"1.3rem"}},
+        React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--text-secondary)",marginBottom:13}}, "ขั้นตอนที่ควรทำตอนนี้"),
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:11}},
+          p.steps.map((s,i)=>React.createElement("div",{key:i,style:{display:"flex",alignItems:"flex-start",gap:10}},
+            React.createElement("div",{style:{width:23,height:23,borderRadius:"50%",background:"rgba(74,58,255,0.12)",color:"var(--indigo)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,flexShrink:0,marginTop:1}}, i+1),
+            React.createElement("span",{style:{fontSize:13.5,lineHeight:1.65}}, s)))))),
+    React.createElement("div",{className:"glass", style:{maxWidth:680,margin:"0 auto 1.5rem",padding:"1.85rem 2.1rem",textAlign:"center"}},
+      savedMsg
+        ? React.createElement("p",{style:{fontSize:14.5,fontWeight:800,color:"#1B9E5A"}}, "✓ " + savedMsg)
+        : React.createElement(React.Fragment, null,
+            React.createElement("p",{style:{fontSize:14.5,fontWeight:800,marginBottom:6}}, "บันทึกเคสนี้และดู Checklist เต็มรูปแบบ"),
+            React.createElement("p",{style:{fontSize:12.5,color:"var(--text-secondary)",marginBottom:"1.3rem"}}, USE_SUPABASE ? "เข้าสู่ระบบเพื่อบันทึกเคสนี้ลงระบบจริง" : "กดเพื่อบันทึกเคสนี้ไว้ในเครื่อง"),
+            USE_SUPABASE
+              ? React.createElement("button",{className:"btn-google", onClick:saveCase},
+                  React.createElement("svg",{width:18,height:18,viewBox:"0 0 48 48"},
+                    React.createElement("path",{fill:"#FFC107",d:"M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"}),
+                    React.createElement("path",{fill:"#FF3D00",d:"M6.3 14.7l6.6 4.8C14.6 16 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 16.3 3 9.7 7.5 6.3 14.7z"}),
+                    React.createElement("path",{fill:"#4CAF50",d:"M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.1 36.5 26.6 37 24 37c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.6 40.4 16.2 45 24 45z"}),
+                    React.createElement("path",{fill:"#1976D2",d:"M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C40.9 36.2 45 30.6 45 24c0-1.2-.1-2.4-.4-3.5z"})),
+                  "เข้าสู่ระบบด้วย Google เพื่อบันทึก")
+              : React.createElement("button",{className:"btn-primary", style:{margin:"0 auto"}, onClick:saveCase}, "บันทึกเคสนี้")
+          )
+    ),
+    React.createElement("p",{style:{textAlign:"center"}},
+      React.createElement("button",{className:"btn-ghost", onClick:()=>{setStep("form");setSelected(null);setEventDate("");setDetail("");setSavedMsg("");}},
+        React.createElement("i",{className:"ti ti-refresh"}), "วิเคราะห์เคสใหม่"))
+  );
+}
+
+/* ===== Dashboard ===== */
+function DashboardPage({ session, cases }){
+  const activeCase = cases && cases.length ? cases[0] : null;
+  const displayName = session && session.user ? (session.user.user_metadata?.full_name || session.user.email) : "คุณผู้ใช้";
+  return React.createElement("div",{className:"fade-up"},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.85rem",flexWrap:"wrap",gap:"1rem"}},
+      React.createElement("div", null,
+        React.createElement("h2",{style:{fontSize:23,marginBottom:5}}, "สวัสดี "+displayName),
+        React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)"}}, activeCase ? ("เคสล่าสุด: "+activeCase.event_type) : "ยังไม่มีเคสที่บันทึกไว้"))
+    ),
+    !activeCase ? React.createElement("div",{className:"glass", style:{padding:"1.6rem",textAlign:"center"}},
+      React.createElement("p",{style:{fontSize:14,color:"var(--text-secondary)"}}, "ยังไม่มีเคสในระบบ ไปวิเคราะห์เคสแรกของคุณที่หน้าแรกได้เลยครับ"))
+    : React.createElement("div",{className:"glass", style:{padding:"1.6rem 1.85rem",marginBottom:"1.6rem"}},
+        React.createElement("div",{style:{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:13}},
+          React.createElement("span",{style:{fontSize:14,color:"var(--text-secondary)"}}, "ระดับความเร่งด่วน"),
+          React.createElement("span",{style:{fontSize:32,fontWeight:800,color:"var(--indigo)"}}, (activeCase.urgency_pct||0)+"%")),
+        React.createElement("div",{style:{height:9,background:"rgba(46,31,76,0.08)",borderRadius:8,overflow:"hidden"}},
+          React.createElement("div",{style:{height:"100%",width:(activeCase.urgency_pct||0)+"%",background:"linear-gradient(90deg,var(--indigo),var(--gold))",borderRadius:8}})),
+        React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginTop:11}}, "สถานะ: "+activeCase.status)),
+    React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",display:"flex",alignItems:"center",gap:"1.1rem",flexWrap:"wrap",background:"linear-gradient(135deg,rgba(255,111,89,0.06),var(--surface))",borderColor:"rgba(255,111,89,0.2)"}},
+      React.createElement("div",{style:{flex:1,minWidth:200}},
+        React.createElement("p",{style:{fontSize:14,fontWeight:800,marginBottom:2}}, "ติดขัดตรงไหน คุยกับผู้เชี่ยวชาญได้เลย"),
+        React.createElement("p",{style:{fontSize:12.5,color:"var(--text-secondary)"}}, "ช่วยดูเคสนี้และแนะนำขั้นตอนถัดไปให้ทันที")),
+      React.createElement("a",{href:"#help", className:"btn-primary", style:{flexShrink:0}}, "โทรปรึกษาตอนนี้"))
+  );
+}
+
+/* ===== Documents ===== */
+function DocumentsPage({ docs, onUpload, uploading }){
+  return React.createElement("div",{className:"fade-up"},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.6rem",flexWrap:"wrap",gap:"1rem"}},
+      React.createElement("h2",{style:{fontSize:21}}, "เอกสารของคุณ"),
+      React.createElement("label",{className:"btn-primary", style:{cursor:"pointer"}},
+        uploading?"กำลังอัปโหลด...":"อัปโหลดไฟล์",
+        React.createElement("input",{type:"file", style:{display:"none"}, onChange:onUpload, disabled:uploading}))),
+    (!docs || docs.length===0)
+      ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "ยังไม่มีเอกสารในระบบ")
+      : React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14}},
+          docs.map(d=>React.createElement("div",{key:d.id, className:"glass", style:{padding:"1.3rem",textAlign:"center"}},
+            React.createElement("p",{style:{fontSize:12.5,fontWeight:700,marginBottom:3,wordBreak:"break-word"}}, d.file_name),
+            React.createElement("p",{style:{fontSize:11,color:"var(--text-muted)"}}, d.file_size?((d.file_size/1024).toFixed(0)+" KB"):""))))
+  );
+}
+
+/* ===== Timeline ===== */
+function TimelinePage({ activeCase, events, onAdd }){
+  const [text, setText] = useState("");
+  return React.createElement("div",{className:"fade-up"},
+    React.createElement("h2",{style:{fontSize:21,marginBottom:"1.6rem"}}, "ไทม์ไลน์เคสของคุณ"),
+    !activeCase ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "สร้างเคสก่อนจากหน้าแรก ถึงจะเพิ่มไทม์ไลน์ได้") :
+    React.createElement(React.Fragment, null,
+      React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",marginBottom:"1.6rem"}},
+        React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+          React.createElement("input",{type:"text", placeholder:"เช่น โทรติดต่อธนาคารเพื่อสอบถามสาเหตุ", value:text, onChange:e=>setText(e.target.value), style:{flex:1,minWidth:200}}),
+          React.createElement("button",{className:"btn-primary", onClick:()=>{ if(text.trim()){ onAdd(text.trim()); setText(""); } }}, "เพิ่ม"))),
+      (!events || events.length===0)
+        ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์")
+        : React.createElement("div",{style:{position:"relative",paddingLeft:28}},
+            React.createElement("div",{style:{position:"absolute",left:6,top:6,bottom:6,width:2,background:"linear-gradient(180deg,var(--indigo),var(--border))"}}),
+            events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}},
+              React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background:"var(--indigo)",boxShadow:"0 0 0 3px rgba(74,58,255,0.18)"}}),
+              React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
+              React.createElement("p",{style:{fontSize:14.5,fontWeight:700}}, ev.event_text))))
+    )
+  );
+}
+
+/* ===== Knowledge ===== */
+const CASE_STUDIES = [
+  {tag:"บัญชีถูกอายัด", color:"#4A3AFF", title:"อายัดเพราะมีเงินเข้าออกเยอะผิดปกติจากการขายของออนไลน์", outcome:"ปลดอายัดได้ภายใน 9 วัน",
+   situation:"เจ้าของร้านขายเสื้อผ้าออนไลน์รายย่อยพบว่าบัญชีถูกอายัดกะทันหัน ระบบตรวจพบรูปแบบเงินเข้าออกจำนวนมากในเวลาสั้นๆ คล้ายบัญชีม้า",
+   actions:"รวบรวมหลักฐานการขายของจริงทั้งหมด ภาพหน้าร้าน ประวัติแชทลูกค้า ใบเสร็จซัพพลายเออร์ ยื่นต่อธนาคารโดยตรง",
+   result:"บัญชีได้รับการปลดอายัดภายใน 9 วันทำการ", lesson:"ผู้ค้าออนไลน์ควรแยกบัญชีส่วนตัวกับบัญชีธุรกิจตั้งแต่แรก"},
+  {tag:"สงสัยบัญชีม้า", color:"#E24B4A", title:"ให้คนรู้จักยืมบัญชีรับเงิน แล้วกลายเป็นผู้ต้องสงสัยบัญชีม้า", outcome:"อยู่ระหว่างกระบวนการตรวจสอบ",
+   situation:"ให้เพื่อนยืมบัญชีรับเงินชั่วคราว โดยไม่รู้ว่าเงินบางส่วนมาจากคดีหลอกลวง",
+   actions:"ติดต่อธนาคารขอเอกสารยืนยันสถานะ นำหลักฐานสนทนากับเพื่อนไปยื่นต่อตำรวจและธนาคาร",
+   result:"คดีอยู่ระหว่างตรวจสอบ ใช้เวลานานกว่าปกติเพราะเกี่ยวข้องกับคดีอาญา", lesson:"ไม่ควรให้ผู้อื่นใช้บัญชีธนาคารของตนเองไม่ว่ากรณีใด"},
+  {tag:"โอนเงินผิดบัญชี", color:"#EF9F27", title:"กดเลขบัญชีผิดหลักเดียว โอนเงินก้อนใหญ่ไปให้คนที่ไม่รู้จัก", outcome:"ได้รับเงินคืนภายใน 12 วัน",
+   situation:"พิมพ์เลขบัญชีผิดหลักเดียวตอนโอนค่าเช่าบ้าน เงินหลักหมื่นไปอยู่บัญชีคนแปลกหน้า",
+   actions:"โทรแจ้งธนาคารต้นทางทันที แจ้งความเพื่อออกใบรับแจ้งความ ยื่นเป็นหลักฐานเพิ่มที่ธนาคาร",
+   result:"ธนาคารติดต่อเจ้าของบัญชีปลายทางได้และคืนเงินเต็มจำนวนใน 12 วัน", lesson:"ความเร็วในการแจ้งเรื่องมีผลมากที่สุดต่อโอกาสได้เงินคืน"},
+  {tag:"ถูกหลอกโอนเงิน", color:"#E24B4A", title:"หลอกเป็นเจ้าหน้าที่ธนาคาร อ้างต้องโอนเงินยืนยันตัวตน", outcome:"อายัดปลายทางได้บางส่วน",
+   situation:"รับสายอ้างเป็นเจ้าหน้าที่ธนาคาร หลอกให้โอนเงินไปบัญชีกลางเพื่อยืนยันตัวตน",
+   actions:"โทรสายด่วน 1441 และธนาคารต้นทางเพื่อขออายัดปลายทางทันที แจ้งความออนไลน์",
+   result:"อายัดเงินคืนได้เพียงบางส่วนเพราะมิจฉาชีพโยกเงินออกเร็ว", lesson:"ธนาคารจริงไม่มีนโยบายให้โอนเงินเพื่อยืนยันตัวตนไม่ว่ากรณีใด"}
+];
+function KnowledgePage(){
+  return React.createElement("div",{className:"fade-up"},
+    React.createElement("h2",{style:{fontSize:21,marginBottom:"1.3rem"}}, "ศูนย์ความรู้"),
+    React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--text-secondary)",marginBottom:4}}, "เคสตัวอย่างจริงที่เคยเกิดขึ้น"),
+    React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginBottom:"1rem"}}, "เรียบเรียงจากเหตุการณ์จริงที่พบบ่อย ปรับรายละเอียดให้ไม่สามารถระบุตัวบุคคลได้"),
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:16}},
+      CASE_STUDIES.map((c,i)=>React.createElement("details",{key:i, className:"glass", style:{padding:"1.4rem 1.6rem"}},
+        React.createElement("summary",{style:{cursor:"pointer",listStyle:"none"}},
+          React.createElement("span",{style:{fontSize:11,fontWeight:800,padding:"3px 11px",borderRadius:14,background:c.color+"1f",color:c.color}}, c.tag),
+          React.createElement("p",{style:{fontSize:15,fontWeight:800,margin:"12px 0 6px"}}, c.title),
+          React.createElement("p",{style:{fontSize:12.5,color:"var(--text-secondary)"}}, c.outcome)),
+        React.createElement("div",{style:{marginTop:16,borderTop:"1px solid var(--border)",paddingTop:14}},
+          React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--indigo)",marginBottom:4}}, "สถานการณ์"),
+          React.createElement("p",{style:{fontSize:13.5,lineHeight:1.75,marginBottom:12}}, c.situation),
+          React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--indigo)",marginBottom:4}}, "สิ่งที่ทำ"),
+          React.createElement("p",{style:{fontSize:13.5,lineHeight:1.75,marginBottom:12}}, c.actions),
+          React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--indigo)",marginBottom:4}}, "ผลลัพธ์"),
+          React.createElement("p",{style:{fontSize:13.5,lineHeight:1.75,marginBottom:12}}, c.result),
+          React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"var(--indigo)",marginBottom:4}}, "บทเรียน"),
+          React.createElement("p",{style:{fontSize:13.5,lineHeight:1.75}}, c.lesson)))))
+  );
+}
+
+/* ===== Help / Booking ===== */
+const PACKS = [
+  {name:"โทรด่วน", price:299, unit:"/ ครั้ง", badge:"ด่วนที่สุด", badgeColor:"var(--coral)", desc:"จ่ายครั้งเดียว ไม่ผูกมัด",
+   features:["คุยกับผู้เชี่ยวชาญทันที 15 นาที","ประเมินสถานการณ์เบื้องต้น","สรุปขั้นตอนที่ควรทำต่อ"], bookable:true},
+  {name:"Free", price:0, unit:"", desc:"เริ่มต้นใช้งานฟรี", features:["วิเคราะห์เคสเบื้องต้น","Checklist พื้นฐาน","ไทม์ไลน์จำกัด"], bookable:false},
+  {name:"Pro", price:499, unit:"/ เดือน", badge:"แนะนำ", badgeColor:"var(--indigo)", desc:"สำหรับเคสที่ต้องติดตามต่อเนื่อง",
+   features:["Checklist เต็มรูปแบบ","รายงานสรุป PDF","Document Center ไม่จำกัด","แจ้งเตือนความคืบหน้า"], bookable:false},
+  {name:"Premium", price:990, unit:"/ เดือน", desc:"ดูแลเคสแบบใกล้ชิดที่สุด",
+   features:["โทรปรึกษาผู้เชี่ยวชาญไม่จำกัดครั้ง","ผู้ช่วยส่วนตัวติดตามเคส","ตรวจเอกสารให้โดยทีมงาน","แชทสนับสนุนตลอดเวลา"], bookable:false}
+];
+function HelpPage(){
+  const [modalOpen, setModalOpen] = useState(false);
+  const [bstep, setBstep] = useState(1);
+  const [packName, setPackName] = useState("โทรด่วน");
+  const [amount, setAmount] = useState(299);
+  const [urgency, setUrgency] = useState(null);
+  const [scheduledTime, setScheduledTime] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [slipFile, setSlipFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const openBooking = (pName, pAmount) => {
+    setPackName(pName); setAmount(pAmount); setUrgency(null); setScheduledTime("");
+    setName(""); setPhone(""); setSlipFile(null); setBstep(1); setModalOpen(true);
+  };
+
+  const submitBooking = async () => {
+    if (!slipFile) { alert("กรุณาแนบสลิปการโอนเงินก่อนกดยืนยันครับ"); return; }
+    setSubmitting(true);
+    await db.insertBooking({ contact_name:name, contact_phone:phone, pack_name:packName, amount, urgency, scheduled_time:scheduledTime||null, payment_status:"รอตรวจสอบ" });
+    setSubmitting(false);
+    setBstep(4);
+  };
+
+  return React.createElement("div",{className:"fade-up"},
+    React.createElement("div",{className:"glass", style:{padding:"2rem 2.2rem",marginBottom:"2rem",display:"flex",alignItems:"center",gap:"1.75rem",flexWrap:"wrap",background:"linear-gradient(135deg,rgba(255,111,89,0.08),var(--surface))",borderColor:"rgba(255,111,89,0.25)"}},
+      React.createElement("div",{style:{flex:1,minWidth:220}},
+        React.createElement("h2",{style:{fontSize:19,marginBottom:5}}, "ต้องการความช่วยเหลือตอนนี้เลยไหม"),
+        React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)"}}, "คุยกับผู้เชี่ยวชาญที่พร้อมรับสายได้ทันที ไม่ต้องรอนัด")),
+      React.createElement("button",{className:"btn-primary", onClick:()=>openBooking("โทรด่วน",299)}, "โทรปรึกษาตอนนี้")),
+    React.createElement("div",{style:{textAlign:"center",maxWidth:560,margin:"0 auto 2.25rem"}},
+      React.createElement("h2",{style:{fontSize:24,marginBottom:8}}, "เลือกแพ็กเกจที่ใช่สำหรับคุณ")),
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(230px,1fr))",gap:18,marginBottom:"1.5rem"}},
+      PACKS.map(pack=>React.createElement("div",{key:pack.name, className:"glass", style:{padding:"1.75rem",position:"relative",borderWidth:pack.badge?2:1,borderColor:pack.badge?pack.badgeColor:"var(--border)"}},
+        pack.badge && React.createElement("span",{style:{position:"absolute",top:-12,left:"1.5rem",fontSize:11,fontWeight:800,padding:"4px 13px",borderRadius:20,color:"#fff",background:pack.badgeColor}}, pack.badge),
+        React.createElement("p",{style:{fontSize:13,fontWeight:700,color:"var(--text-secondary)",marginBottom:10,marginTop:8}}, pack.name),
+        React.createElement("p",{style:{fontSize:32,fontWeight:900}}, "฿"+pack.price+" ", React.createElement("span",{style:{fontSize:13,fontWeight:600,color:"var(--text-muted)"}}, pack.unit)),
+        React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginBottom:"1.1rem"}}, pack.desc),
+        pack.features.map(f=>React.createElement("div",{key:f, style:{display:"flex",gap:9,fontSize:13,color:"var(--text-secondary)",marginBottom:9}},
+          React.createElement("span",{style:{color:"var(--indigo)"}}, "✓"), f)),
+        pack.bookable
+          ? React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center",marginTop:"0.5rem"}, onClick:()=>openBooking(pack.name,pack.price)}, "โทรเลย")
+          : React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",marginTop:"0.5rem"}}, pack.name==="Free"?"เริ่มใช้งานฟรี":("เริ่มใช้ "+pack.name))
+      ))),
+    modalOpen && React.createElement("div",{style:{position:"fixed",inset:0,zIndex:100,background:"rgba(33,26,61,0.55)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,overflowY:"auto"}},
+      React.createElement("div",{style:{background:"var(--surface-solid)",borderRadius:20,maxWidth:460,width:"100%",padding:"2rem",position:"relative",maxHeight:"88vh",overflowY:"auto"}},
+        React.createElement("button",{onClick:()=>setModalOpen(false), style:{position:"absolute",top:18,right:18,background:"rgba(46,31,76,0.06)",border:"none",width:32,height:32,borderRadius:"50%",cursor:"pointer"}}, "×"),
+        React.createElement("div",{style:{display:"flex",gap:6,marginBottom:"1.5rem"}},
+          [1,2,3,4].map(n=>React.createElement("span",{key:n, style:{flex:1,height:4,borderRadius:4,background:n<=bstep?"var(--indigo)":"var(--border)"}}))),
+
+        bstep===1 && React.createElement("div", null,
+          React.createElement("h3",{style:{fontSize:18,marginBottom:6}}, "เลือกรูปแบบการนัดหมาย"),
+          React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)",marginBottom:"1.3rem"}}, "แพ็กเกจ ", React.createElement("strong",null,packName)),
+          React.createElement("div",{onClick:()=>setUrgency("urgent"), style:{padding:16,border:"1.5px solid "+(urgency==="urgent"?"var(--indigo)":"var(--border-strong)"),borderRadius:13,cursor:"pointer",marginBottom:10,background:urgency==="urgent"?"rgba(74,58,255,0.08)":"transparent"}},
+            React.createElement("p",{style:{fontWeight:700,fontSize:14}}, "เร่งด่วน — โทรกลับใน 15 นาที")),
+          React.createElement("div",{onClick:()=>setUrgency("scheduled"), style:{padding:16,border:"1.5px solid "+(urgency==="scheduled"?"var(--indigo)":"var(--border-strong)"),borderRadius:13,cursor:"pointer",background:urgency==="scheduled"?"rgba(74,58,255,0.08)":"transparent"}},
+            React.createElement("p",{style:{fontWeight:700,fontSize:14}}, "นัดเวลาที่สะดวก")),
+          urgency==="scheduled" && React.createElement("input",{type:"text", placeholder:"เช่น วันนี้ 18:00 น.", value:scheduledTime, onChange:e=>setScheduledTime(e.target.value), style:{marginTop:14}}),
+          React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center",marginTop:"1.5rem"}, onClick:()=>{ if(!urgency){alert("กรุณาเลือกรูปแบบการนัดหมายก่อนครับ");return;} setBstep(2); }}, "ถัดไป")),
+
+        bstep===2 && React.createElement("div", null,
+          React.createElement("h3",{style:{fontSize:18,marginBottom:6}}, "ข้อมูลติดต่อ"),
+          React.createElement("p",{style:{fontSize:12.5,fontWeight:700,color:"var(--text-secondary)",marginBottom:7}}, "ชื่อเล่น หรือชื่อที่ให้เราเรียก"),
+          React.createElement("input",{type:"text", placeholder:"ใช้ชื่อเล่นหรือนามแฝงก็ได้", value:name, onChange:e=>setName(e.target.value), style:{marginBottom:14}}),
+          React.createElement("p",{style:{fontSize:12.5,fontWeight:700,color:"var(--text-secondary)",marginBottom:7}}, "เบอร์โทรศัพท์"),
+          React.createElement("input",{type:"text", placeholder:"08X-XXX-XXXX", value:phone, onChange:e=>setPhone(e.target.value), style:{marginBottom:"1.5rem"}}),
+          React.createElement("div",{style:{display:"flex",gap:10}},
+            React.createElement("button",{className:"btn-ghost", style:{flex:1,justifyContent:"center"}, onClick:()=>setBstep(1)}, "ย้อนกลับ"),
+            React.createElement("button",{className:"btn-primary", style:{flex:1.5,justifyContent:"center"}, onClick:()=>{ if(!name||!phone){alert("กรุณากรอกชื่อและเบอร์โทรครับ");return;} setBstep(3); }}, "ถัดไป"))),
+
+        bstep===3 && React.createElement("div", null,
+          React.createElement("h3",{style:{fontSize:18,marginBottom:6}}, "ชำระเงิน"),
+          React.createElement("div",{style:{width:170,height:170,margin:"0 auto 1rem",borderRadius:14,border:"1.5px dashed var(--border-strong)",display:"flex",alignItems:"center",justifyContent:"center"}},
+            React.createElement("span",{style:{fontSize:12,color:"var(--text-muted)"}}, "QR PromptPay")),
+          React.createElement("div",{style:{textAlign:"center",marginBottom:"1.3rem"}},
+            React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)"}}, "ยอดที่ต้องชำระ"),
+            React.createElement("p",{style:{fontSize:28,fontWeight:900,color:"var(--indigo)"}}, "฿"+amount)),
+          React.createElement("label",{style:{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,border:"1.5px dashed var(--border-strong)",borderRadius:13,padding:"1.3rem",cursor:"pointer",marginBottom:"1.3rem"}},
+            React.createElement("span",{style:{fontSize:12.5,color:"var(--text-secondary)"}}, slipFile?("แนบสลิปแล้ว: "+slipFile.name):"แตะเพื่ออัปโหลดสลิป"),
+            React.createElement("input",{type:"file", accept:"image/*,.pdf", style:{display:"none"}, onChange:e=>setSlipFile(e.target.files[0]||null)})),
+          React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center",marginBottom:10}, onClick:submitBooking, disabled:submitting}, submitting?"กำลังบันทึก...":"ฉันโอนเงินแล้ว"),
+          React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center"}, onClick:()=>setBstep(2)}, "ย้อนกลับ")),
+
+        bstep===4 && React.createElement("div",{style:{textAlign:"center"}},
+          React.createElement("h3",{style:{fontSize:19,marginBottom:8}}, "นัดหมายเรียบร้อยแล้ว"),
+          React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)",lineHeight:1.7,marginBottom:"1.5rem"}},
+            "ทางทีมที่ปรึกษาจะโทรหาคุณ ", React.createElement("strong",null,name), " ที่เบอร์ ", React.createElement("strong",null,phone), React.createElement("br"),
+            urgency==="urgent"?"ภายใน 15 นาทีนี้":(scheduledTime||"ตามเวลาที่นัดหมาย")),
+          React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center"}, onClick:()=>setModalOpen(false)}, "เสร็จสิ้น"))
+      )),
+    React.createElement("p",{style:{textAlign:"center",fontSize:11.5,color:"var(--text-muted)",maxWidth:560,margin:"1rem auto 0"}}, "ปลดอายัติ.com เป็นเครื่องมือช่วยจัดการข้อมูลและเชื่อมต่อผู้เชี่ยวชาญ ไม่ใช่บริษัทรับปลดอายัดและไม่ใช่สำนักงานกฎหมาย")
+  );
+}
+
+/* ===== Login Screen (เมื่อต่อ Supabase ไว้แล้วแต่ยังไม่ login) ===== */
+function LoginScreen(){
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    setBusy(true);
+    try { await sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: window.location.origin + window.location.pathname } }); }
+    catch(e){ alert("เข้าสู่ระบบไม่สำเร็จ: "+(e&&e.message)); setBusy(false); }
+  };
+  return React.createElement("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24}},
+    React.createElement("div",{className:"glass", style:{maxWidth:380,width:"100%",padding:"2.5rem",textAlign:"center"}},
+      React.createElement("h1",{style:{fontSize:22,marginBottom:10}}, "ปลดอายัติ.com"),
+      React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)",marginBottom:"1.6rem"}}, "เข้าสู่ระบบเพื่อบันทึกเคสและติดตามความคืบหน้า"),
+      React.createElement("button",{className:"btn-google", onClick:go, disabled:busy},
+        React.createElement("svg",{width:18,height:18,viewBox:"0 0 48 48"},
+          React.createElement("path",{fill:"#FFC107",d:"M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"}),
+          React.createElement("path",{fill:"#FF3D00",d:"M6.3 14.7l6.6 4.8C14.6 16 18.9 13 24 13c3.1 0 5.8 1.1 8 3l6-6C34 5.1 29.3 3 24 3 16.3 3 9.7 7.5 6.3 14.7z"}),
+          React.createElement("path",{fill:"#4CAF50",d:"M24 45c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.1 36.5 26.6 37 24 37c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.6 40.4 16.2 45 24 45z"}),
+          React.createElement("path",{fill:"#1976D2",d:"M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.2 5.2C40.9 36.2 45 30.6 45 24c0-1.2-.1-2.4-.4-3.5z"})),
+        busy?"กำลังเปิด Google...":"เข้าสู่ระบบด้วย Google"),
+      React.createElement("p",{style:{fontSize:11,color:"var(--text-muted)",marginTop:14}}, "หรือกลับไปวิเคราะห์เคสแบบไม่ login ก่อนได้ที่หน้าแรก")
+    ));
+}
+
+/* ===== App หลัก (หลัง login หรือโหมด local) ===== */
+function App({ session }){
+  const [view, setView] = useState("home");
+  const [cases, setCases] = useState([]);
+  const [docs, setDocs] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  const refreshCases = async () => { setCases(await db.listCases()); };
+  const refreshDocs = async () => { setDocs(await db.listDocs()); };
+  const activeCase = cases && cases.length ? cases[0] : null;
+  const refreshEvents = async () => { if(activeCase) setEvents(await db.listEvents(activeCase.id)); };
+
+  useEffect(()=>{ refreshCases(); refreshDocs(); }, []);
+  useEffect(()=>{ refreshEvents(); }, [activeCase && activeCase.id]);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const row = await db.insertDoc(file);
+    setDocs(prev=>[row, ...prev]);
+    setUploading(false);
+  };
+  const handleAddEvent = async (text) => {
+    const row = await db.insertEvent(activeCase.id, text);
+    setEvents(prev=>[...prev, row]);
+  };
+
+  return React.createElement(React.Fragment, null,
+    React.createElement(TopNav, {view, setView, session}),
+    React.createElement("button",{id:"sos-btn", onClick:()=>setView("help")},
+      React.createElement("i",{className:"ti ti-headset"}), "ขอความช่วยเหลือด่วน"),
+    React.createElement("div",{className:"wrap"},
+      React.createElement("div",{className:"page"},
+        view==="home" && React.createElement(HomePage, {setView, session, refreshCases}),
+        view==="dashboard" && React.createElement(DashboardPage, {session, cases}),
+        view==="documents" && React.createElement(DocumentsPage, {docs, onUpload:handleUpload, uploading}),
+        view==="timeline" && React.createElement(TimelinePage, {activeCase, events, onAdd:handleAddEvent}),
+        view==="knowledge" && React.createElement(KnowledgePage, null),
+        view==="help" && React.createElement(HelpPage, null)
+      ))
+  );
+}
+
+/* ===== Gate: เช็ค session ก่อน render (ถ้าต่อ Supabase ไว้) ===== */
+function Gate(){
+  const [ready, setReady] = useState(!USE_SUPABASE);
+  const [session, setSession] = useState(null);
+  useEffect(()=>{
+    if (!USE_SUPABASE) return;
+    sb.auth.getSession().then(({data})=>{
+      currentUser = data.session ? data.session.user : null;
+      setSession(data.session);
+      setReady(true);
+    });
+    const { data: sub } = sb.auth.onAuthStateChange((_e, s)=>{
+      currentUser = s ? s.user : null;
+      setSession(s);
+    });
+    return ()=>{ try{ sub.subscription.unsubscribe(); }catch(e){} };
+  }, []);
+  if (!ready) return React.createElement("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--text-secondary)"}}, "กำลังโหลด...");
+  if (USE_SUPABASE && !session) return React.createElement(LoginScreen, null);
+  return React.createElement(App, {key: session && session.user ? session.user.id : "local", session});
+}
+
+try {
+  ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(Gate, null));
+} catch (err) {
+  document.getElementById("root").innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#b91c1c">เกิดข้อผิดพลาดในการแสดงผล: ' + (err && err.message) + '</div>';
+}
+</script>
+
+<script>
+(function(){
+  function loadOne(urls, test, done){
+    if(test()) return done();
+    var i=0;
+    (function go(){
+      if(i>=urls.length) return done();
+      var s=document.createElement('script');
+      s.src=urls[i++];
+      s.onload=function(){ test()?done():go(); };
+      s.onerror=go;
+      document.head.appendChild(s);
+    })();
+  }
+  function chain(steps, fin){ var i=0; (function nx(){ if(i>=steps.length) return fin(); steps[i++](nx); })(); }
+  var rootEl=document.getElementById('root');
+  chain([
+    function(n){ loadOne([
+      'https://unpkg.com/react@18/umd/react.production.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js',
+      'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js'
+    ], function(){return !!window.React;}, n); },
+    function(n){ loadOne([
+      'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js',
+      'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js'
+    ], function(){return !!window.ReactDOM;}, n); },
+    function(n){ loadOne([
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+      'https://unpkg.com/@supabase/supabase-js@2'
+    ], function(){return !!window.supabase;}, n); }
+  ], function(){
+    if(!window.React || !window.ReactDOM){
+      if(rootEl) rootEl.innerHTML='<div style="padding:40px;text-align:center;color:#b91c1c">โหลดไลบรารีหลักไม่สำเร็จ กรุณาเช็คอินเทอร์เน็ตแล้วรีเฟรช</div>';
+      return;
+    }
+    try {
+      var code=document.getElementById('appcode').textContent;
+      (0, eval)(code);
+    } catch(e){
+      if(rootEl) rootEl.innerHTML='<div style="padding:40px;font-family:sans-serif;color:#b91c1c">เริ่มระบบไม่สำเร็จ: '+(e&&e.message)+'</div>';
+    }
+  });
+})();
+</script>
+</body>
+</html>
