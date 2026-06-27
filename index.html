@@ -1090,6 +1090,10 @@ function AdminPage(){
   const [search, setSearch] = useState("");
   const [posting, setPosting] = useState(false);
   const [myRoleTitle, setMyRoleTitle] = useState("ทีมงาน");
+  const [freeCallFormOpen, setFreeCallFormOpen] = useState(false);
+  const [freeCallName, setFreeCallName] = useState("");
+  const [freeCallPhone, setFreeCallPhone] = useState("");
+  const [grantingFreeCall, setGrantingFreeCall] = useState(false);
 
   useEffect(()=>{
     (async ()=>{
@@ -1119,18 +1123,48 @@ function AdminPage(){
     }
   };
 
-  const toggleFreeCall = async () => {
+  const openFreeCallForm = () => {
+    setFreeCallName("");
+    setFreeCallPhone("");
+    setFreeCallFormOpen(true);
+  };
+
+  const revokeFreeCall = async () => {
     if (!selectedCase) return;
-    const newValue = !selectedCase.free_call_credit;
-    const updated = await db.setFreeCallCredit(selectedCase.id, newValue);
+    const updated = await db.setFreeCallCredit(selectedCase.id, false);
     if (updated){
-      setSelectedCase({...selectedCase, free_call_credit:newValue});
-      setAllCases(prev => prev.map(c => c.id===selectedCase.id ? {...c, free_call_credit:newValue} : c));
-      if (newValue){
-        const row = await db.insertEventAsStaff(selectedCase.id, "ทีมงานมอบสิทธิ์โทรปรึกษาฟรี 1 ครั้งให้กับเคสนี้", selectedCase.user_id, myRoleTitle);
-        setEvents(prev=>[...prev, row]);
-      }
+      setSelectedCase({...selectedCase, free_call_credit:false});
+      setAllCases(prev => prev.map(c => c.id===selectedCase.id ? {...c, free_call_credit:false} : c));
     }
+  };
+
+  const submitFreeCallGrant = async () => {
+    if (!freeCallName.trim() || !freeCallPhone.trim()){
+      alert("กรุณากรอกชื่อและเบอร์โทรครับ");
+      return;
+    }
+    setGrantingFreeCall(true);
+    const updated = await db.setFreeCallCredit(selectedCase.id, true);
+    if (updated){
+      setSelectedCase({...selectedCase, free_call_credit:true});
+      setAllCases(prev => prev.map(c => c.id===selectedCase.id ? {...c, free_call_credit:true} : c));
+
+      // สร้างคำขอนัดหมายไว้ในตาราง bookings ทันที เพื่อให้ทีมงานโทรกลับได้เลยโดยไม่ต้องรอลูกค้าไปกดจองเอง
+      await db.insertBooking({
+        contact_name: freeCallName.trim(),
+        contact_phone: freeCallPhone.trim(),
+        pack_name: "โทรด่วน (สิทธิ์ฟรี)",
+        amount: 0,
+        urgency: "urgent",
+        scheduled_time: null,
+        payment_status: "ใช้สิทธิ์โทรฟรี — แอดมินให้สิทธิ์"
+      });
+
+      const row = await db.insertEventAsStaff(selectedCase.id, "ทีมงานมอบสิทธิ์โทรปรึกษาฟรี 1 ครั้งให้กับเคสนี้ จะติดต่อกลับที่เบอร์ " + freeCallPhone.trim() + " ในนาม " + freeCallName.trim(), selectedCase.user_id, myRoleTitle);
+      setEvents(prev=>[...prev, row]);
+    }
+    setGrantingFreeCall(false);
+    setFreeCallFormOpen(false);
   };
 
   const postAsStaff = async () => {
@@ -1180,9 +1214,20 @@ function AdminPage(){
           !isClosed && React.createElement("button",{className:"btn-primary", style:{flexShrink:0,background:"linear-gradient(135deg,#1B9E5A,#157A46)"}, onClick:closeCase},
             React.createElement("i",{className:"ti ti-circle-check"}), "ปิดจบงาน")),
         React.createElement("div",{style:{borderTop:"1px solid var(--border)",paddingTop:12}},
-          React.createElement("button",{className:"btn-ghost", style:{fontSize:12.5}, onClick:toggleFreeCall},
-            React.createElement("i",{className:"ti ti-phone-check"}),
-            selectedCase.free_call_credit ? "ยกเลิกสิทธิ์โทรฟรี" : "🎁 ให้สิทธิ์โทรปรึกษาฟรี 1 ครั้ง"))),
+          !selectedCase.free_call_credit
+            ? React.createElement("button",{className:"btn-ghost", style:{fontSize:12.5}, onClick:openFreeCallForm},
+                React.createElement("i",{className:"ti ti-phone-check"}), "🎁 ให้สิทธิ์โทรปรึกษาฟรี 1 ครั้ง")
+            : React.createElement("button",{className:"btn-ghost", style:{fontSize:12.5}, onClick:revokeFreeCall},
+                React.createElement("i",{className:"ti ti-phone-check"}), "ยกเลิกสิทธิ์โทรฟรี"),
+          freeCallFormOpen && React.createElement("div",{style:{marginTop:12,padding:"1rem 1.1rem",borderRadius:13,background:"rgba(242,169,59,0.08)",border:"1px solid rgba(242,169,59,0.3)"}},
+            React.createElement("p",{style:{fontSize:12.5,fontWeight:800,marginBottom:10}}, "กรอกข้อมูลลูกค้าเพื่อให้ทีมงานติดต่อกลับ"),
+            React.createElement("p",{style:{fontSize:11.5,fontWeight:700,color:"var(--text-secondary)",marginBottom:6}}, "ชื่อ หรือชื่อเล่น"),
+            React.createElement("input",{type:"text", placeholder:"เช่น คุณสมชาย", value:freeCallName, onChange:e=>setFreeCallName(e.target.value), style:{marginBottom:10}}),
+            React.createElement("p",{style:{fontSize:11.5,fontWeight:700,color:"var(--text-secondary)",marginBottom:6}}, "เบอร์โทรศัพท์"),
+            React.createElement("input",{type:"text", placeholder:"08X-XXX-XXXX", value:freeCallPhone, onChange:e=>setFreeCallPhone(e.target.value), style:{marginBottom:12}}),
+            React.createElement("div",{style:{display:"flex",gap:8}},
+              React.createElement("button",{className:"btn-ghost", style:{flex:1,justifyContent:"center",fontSize:12.5}, onClick:()=>setFreeCallFormOpen(false)}, "ยกเลิก"),
+              React.createElement("button",{className:"btn-primary", style:{flex:1.5,justifyContent:"center",fontSize:12.5}, onClick:submitFreeCallGrant, disabled:grantingFreeCall}, grantingFreeCall?"กำลังบันทึก...":"ยืนยันให้สิทธิ์"))))),
 
       (!events || events.length===0)
         ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14,marginBottom:"1.6rem"}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์เคสนี้")
