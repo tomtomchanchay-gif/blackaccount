@@ -721,8 +721,7 @@ function Gate(){
     return ()=>{ try{ sub.subscription.unsubscribe(); }catch(e){} };
   }, []);
   if (!ready) return React.createElement("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--text-secondary)"}}, "กำลังโหลด...");
-  if (USE_SUPABASE && !session) return React.createElement(LoginScreen, null);
-  return React.createElement(App, {key: session && session.user ? session.user.id : "local", session});
+  return React.createElement(App, {key: session && session.user ? session.user.id : "anon", session});
 }
 
 try {
