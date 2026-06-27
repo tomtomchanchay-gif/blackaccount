@@ -64,6 +64,26 @@
   #theme-toggle:hover{transform:scale(1.08) rotate(15deg);}
   .staff-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--indigo),var(--indigo-deep));padding:2px 9px;border-radius:10px;margin-bottom:4px;}
   .staff-entry{border-left:3px solid var(--gold);padding-left:10px;margin-left:-13px;}
+
+  .btn-rainbow{
+    position:relative;border:none;border-radius:var(--radius-sm);font-family:var(--font);font-weight:800;
+    font-size:14.5px;padding:14px 26px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;color:#fff;
+    background:linear-gradient(270deg,#4A3AFF,#FF6F59,#F2A93B,#3DDC97,#5B8DEF,#4A3AFF);
+    background-size:300% 300%;animation:rainbowShift 4s ease infinite, rainbowPulse 1.8s ease-in-out infinite;
+    box-shadow:0 8px 22px -6px rgba(74,58,255,0.5);
+  }
+  @keyframes rainbowShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+  @keyframes rainbowPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.035);}}
+  .btn-rainbow:hover{box-shadow:0 12px 30px -6px rgba(74,58,255,0.65);}
+
+  .onboard-step{
+    display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:13px;
+    background:var(--surface);border:1px solid var(--border);transition:all .25s ease;
+  }
+  .onboard-num{
+    width:26px;height:26px;border-radius:50%;background:var(--indigo);color:#fff;font-size:12.5px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
   ::-webkit-scrollbar{width:10px;}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;}
   @media (max-width:760px){.navlinks{display:none;}.page{padding:104px 18px 50px;}}
 </style>
@@ -84,7 +104,7 @@
   // รหัส PIN สำหรับเจ้าหน้าที่ ใช้ปลดล็อกช่องพิมพ์ลงไทม์ไลน์แบบ "ทีมงาน" ในหน้าไทม์ไลน์
   // คำเตือน: นี่เป็นการกันแบบพื้นฐานเท่านั้น ไม่ใช่ระบบสิทธิ์ที่ปลอดภัยระดับสูง
   // ใครก็ตามที่เปิดดูโค้ดเว็บ (view source) จะเห็นรหัสนี้ได้ ควรเปลี่ยนเป็นรหัสของคุณเองและไม่บอกใคร
-  window.STAFF_PIN = "STAFF2569";
+  window.STAFF_PIN = "0928802390apisiT";
 </script>
 
 <script type="text/app" id="appcode">
@@ -422,6 +442,18 @@ function DashboardPage({ session, cases, docs, events, setView }){
   const recentDocs = (docs || []).slice(0, 3);
   const recentEvents = (events || []).slice(-3).reverse();
 
+  const [showOnboard, setShowOnboard] = useState(false);
+  useEffect(()=>{
+    if (!activeCase) return;
+    let seen = false;
+    try { seen = localStorage.getItem("pordaiyat_onboard_seen") === "1"; } catch(e){}
+    if (!seen) setShowOnboard(true);
+  }, [activeCase && activeCase.id]);
+  const dismissOnboard = () => {
+    setShowOnboard(false);
+    try { localStorage.setItem("pordaiyat_onboard_seen","1"); } catch(e){}
+  };
+
   return React.createElement("div",{className:"fade-up"},
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.85rem",flexWrap:"wrap",gap:"1rem"}},
       React.createElement("div", null,
@@ -454,6 +486,31 @@ function DashboardPage({ session, cases, docs, events, setView }){
             React.createElement("p",{style:{fontSize:13.5,lineHeight:1.6}}, activeCase.detail || "ไม่ได้กรอกรายละเอียดไว้")))
       ),
 
+      showOnboard && React.createElement("div",{className:"glass", style:{padding:"1.6rem 1.85rem",marginBottom:"1.6rem",borderColor:"rgba(74,58,255,0.3)",background:"linear-gradient(135deg,rgba(74,58,255,0.06),var(--surface))"}},
+        React.createElement("p",{style:{fontSize:15,fontWeight:800,marginBottom:14}}, "👋 เริ่มต้นใช้งานเคสของคุณ — ทำตาม 3 ขั้นนี้ได้เลย"),
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10,marginBottom:16}},
+          React.createElement("div",{className:"onboard-step"},
+            React.createElement("span",{className:"onboard-num"},"1"),
+            React.createElement("div", null,
+              React.createElement("p",{style:{fontSize:13.5,fontWeight:700,marginBottom:2}}, "อัปโหลดเอกสารที่มี"),
+              React.createElement("p",{style:{fontSize:12,color:"var(--text-secondary)"}}, "เริ่มจากบัตรประชาชนหรือเอกสารที่หาได้ก่อน"))),
+          React.createElement("div",{className:"onboard-step"},
+            React.createElement("span",{className:"onboard-num"},"2"),
+            React.createElement("div", null,
+              React.createElement("p",{style:{fontSize:13.5,fontWeight:700,marginBottom:2}}, "เพิ่มความคืบหน้าในไทม์ไลน์"),
+              React.createElement("p",{style:{fontSize:12,color:"var(--text-secondary)"}}, "บันทึกทุกครั้งที่มีอะไรเกิดขึ้นกับเคส เช่น โทรคุยกับธนาคาร"))),
+          React.createElement("div",{className:"onboard-step"},
+            React.createElement("span",{className:"onboard-num"},"3"),
+            React.createElement("div", null,
+              React.createElement("p",{style:{fontSize:13.5,fontWeight:700,marginBottom:2}}, "โทรปรึกษาผู้เชี่ยวชาญถ้าจำเป็น"),
+              React.createElement("p",{style:{fontSize:12,color:"var(--text-secondary)"}}, "ติดขัดตรงไหนให้ทีมงานช่วยดูได้ทุกเมื่อ")))),
+        React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+          React.createElement("button",{className:"btn-rainbow", onClick:()=>{dismissOnboard(); setView("documents");}},
+            React.createElement("i",{className:"ti ti-upload"}), "ไปอัปโหลดเอกสาร"),
+          React.createElement("button",{className:"btn-ghost", onClick:()=>{dismissOnboard(); setView("timeline");}},
+            "เข้าใจแล้ว ไปไทม์ไลน์ต่อ", React.createElement("i",{className:"ti ti-arrow-right"})))
+      ),
+
       /* แถวการ์ด: Checklist / เอกสาร / ไทม์ไลน์ */
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,marginBottom:"1.6rem"}},
 
@@ -463,7 +520,8 @@ function DashboardPage({ session, cases, docs, events, setView }){
           React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6,marginBottom:12}},
             checklist.map((item,i)=>React.createElement("div",{key:i, style:{display:"flex",alignItems:"center",gap:8,fontSize:12.5,color:i<checklistDone?"var(--text-primary)":"var(--text-muted)"}},
               React.createElement("span", null, i<checklistDone?"✅":"⬜"), item))),
-          React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",fontSize:13}, onClick:()=>setView("documents")}, "ไปอัปโหลดเอกสาร")),
+          React.createElement("button",{className:"btn-rainbow", style:{width:"100%",justifyContent:"center",fontSize:13,padding:"11px 16px"}, onClick:()=>setView("documents")},
+            React.createElement("i",{className:"ti ti-upload"}), "ไปอัปโหลดเอกสาร")),
 
         React.createElement("div",{className:"glass", style:{padding:"1.3rem"}},
           React.createElement("p",{style:{fontSize:13.5,fontWeight:800,marginBottom:10}}, "📁 เอกสารล่าสุด"),
@@ -615,10 +673,10 @@ const PACKS = [
   {name:"โทรด่วน", price:299, unit:"/ ครั้ง", badge:"ด่วนที่สุด", badgeColor:"var(--coral)", desc:"จ่ายครั้งเดียว ไม่ผูกมัด",
    features:["คุยกับผู้เชี่ยวชาญทันที 15 นาที","ประเมินสถานการณ์เบื้องต้น","สรุปขั้นตอนที่ควรทำต่อ"], bookable:true},
   {name:"Free", price:0, unit:"", desc:"เริ่มต้นใช้งานฟรี", features:["วิเคราะห์เคสเบื้องต้น","Checklist พื้นฐาน","ไทม์ไลน์จำกัด"], bookable:false},
-  {name:"Pro", price:499, unit:"/ เดือน", badge:"แนะนำ", badgeColor:"var(--indigo)", desc:"สำหรับเคสที่ต้องติดตามต่อเนื่อง",
-   features:["Checklist เต็มรูปแบบ","รายงานสรุป PDF","Document Center ไม่จำกัด","แจ้งเตือนความคืบหน้า"], bookable:false},
-  {name:"Premium", price:990, unit:"/ เดือน", desc:"ดูแลเคสแบบใกล้ชิดที่สุด",
-   features:["โทรปรึกษาผู้เชี่ยวชาญไม่จำกัดครั้ง","ผู้ช่วยส่วนตัวติดตามเคส","ตรวจเอกสารให้โดยทีมงาน","แชทสนับสนุนตลอดเวลา"], bookable:false}
+  {name:"Pro", price:599, unit:"/ เดือน", badge:"แนะนำ", badgeColor:"var(--indigo)", desc:"สำหรับเคสที่ต้องติดตามต่อเนื่อง",
+   features:["Checklist เต็มรูปแบบ","รายงานสรุป PDF","Document Center ไม่จำกัด","แจ้งเตือนความคืบหน้า"], bookable:true},
+  {name:"Premium", price:1290, unit:"/ เดือน", desc:"ดูแลเคสแบบใกล้ชิดที่สุด",
+   features:["โทรปรึกษาผู้เชี่ยวชาญไม่จำกัดครั้ง","ผู้ช่วยส่วนตัวติดตามเคส","ตรวจเอกสารให้โดยทีมงาน","แชทสนับสนุนตลอดเวลา"], bookable:true}
 ];
 function HelpPage(){
   const [modalOpen, setModalOpen] = useState(false);
@@ -633,8 +691,13 @@ function HelpPage(){
   const [submitting, setSubmitting] = useState(false);
 
   const openBooking = (pName, pAmount) => {
-    setPackName(pName); setAmount(pAmount); setUrgency(null); setScheduledTime("");
-    setName(""); setPhone(""); setSlipFile(null); setBstep(1); setModalOpen(true);
+    const isSubscription = (pName === "Pro" || pName === "Premium");
+    setPackName(pName); setAmount(pAmount);
+    setUrgency(isSubscription ? "subscription" : null);
+    setScheduledTime("");
+    setName(""); setPhone(""); setSlipFile(null);
+    setBstep(isSubscription ? 2 : 1);
+    setModalOpen(true);
   };
 
   const submitBooking = async () => {
@@ -662,7 +725,7 @@ function HelpPage(){
         pack.features.map(f=>React.createElement("div",{key:f, style:{display:"flex",gap:9,fontSize:13,color:"var(--text-secondary)",marginBottom:9}},
           React.createElement("span",{style:{color:"var(--indigo)"}}, "✓"), f)),
         pack.bookable
-          ? React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center",marginTop:"0.5rem"}, onClick:()=>openBooking(pack.name,pack.price)}, "โทรเลย")
+          ? React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center",marginTop:"0.5rem"}, onClick:()=>openBooking(pack.name,pack.price)}, pack.name==="โทรด่วน" ? "โทรเลย" : ("เริ่มใช้ "+pack.name))
           : React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",marginTop:"0.5rem"}}, pack.name==="Free"?"เริ่มใช้งานฟรี":("เริ่มใช้ "+pack.name))
       ))),
     modalOpen && React.createElement("div",{style:{position:"fixed",inset:0,zIndex:100,background:"rgba(33,26,61,0.55)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",padding:24,overflowY:"auto"}},
@@ -688,13 +751,21 @@ function HelpPage(){
           React.createElement("p",{style:{fontSize:12.5,fontWeight:700,color:"var(--text-secondary)",marginBottom:7}}, "เบอร์โทรศัพท์"),
           React.createElement("input",{type:"text", placeholder:"08X-XXX-XXXX", value:phone, onChange:e=>setPhone(e.target.value), style:{marginBottom:"1.5rem"}}),
           React.createElement("div",{style:{display:"flex",gap:10}},
-            React.createElement("button",{className:"btn-ghost", style:{flex:1,justifyContent:"center"}, onClick:()=>setBstep(1)}, "ย้อนกลับ"),
+            React.createElement("button",{className:"btn-ghost", style:{flex:1,justifyContent:"center"}, onClick:()=> urgency==="subscription" ? setModalOpen(false) : setBstep(1)}, urgency==="subscription" ? "ปิด" : "ย้อนกลับ"),
             React.createElement("button",{className:"btn-primary", style:{flex:1.5,justifyContent:"center"}, onClick:()=>{ if(!name||!phone){alert("กรุณากรอกชื่อและเบอร์โทรครับ");return;} setBstep(3); }}, "ถัดไป"))),
 
         bstep===3 && React.createElement("div", null,
           React.createElement("h3",{style:{fontSize:18,marginBottom:6}}, "ชำระเงิน"),
+          React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)",marginBottom:"1.3rem"}}, "สแกน QR หรือโอนผ่านเลขบัญชีด้านล่าง"),
           React.createElement("div",{style:{width:170,height:170,margin:"0 auto 1rem",borderRadius:14,border:"1.5px dashed var(--border-strong)",display:"flex",alignItems:"center",justifyContent:"center"}},
             React.createElement("span",{style:{fontSize:12,color:"var(--text-muted)"}}, "QR PromptPay")),
+          React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(74,58,255,0.05)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 14px",marginBottom:"1.3rem"}},
+            React.createElement("div", null,
+              React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:2}}, "ธนาคารกรุงเทพ · อภิสิทธิ์ ฉัญฉาย"),
+              React.createElement("p",{style:{fontSize:15,fontWeight:800,fontFamily:"var(--font-mono)"}}, "880-7-08543-9")),
+            React.createElement("button",{className:"btn-ghost", style:{padding:"8px 12px",fontSize:12}, onClick:()=>{
+              navigator.clipboard && navigator.clipboard.writeText("8807085439");
+            }}, React.createElement("i",{className:"ti ti-copy"}), "คัดลอก")),
           React.createElement("div",{style:{textAlign:"center",marginBottom:"1.3rem"}},
             React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)"}}, "ยอดที่ต้องชำระ"),
             React.createElement("p",{style:{fontSize:28,fontWeight:900,color:"var(--indigo)"}}, "฿"+amount)),
@@ -705,10 +776,12 @@ function HelpPage(){
           React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center"}, onClick:()=>setBstep(2)}, "ย้อนกลับ")),
 
         bstep===4 && React.createElement("div",{style:{textAlign:"center"}},
-          React.createElement("h3",{style:{fontSize:19,marginBottom:8}}, "นัดหมายเรียบร้อยแล้ว"),
+          React.createElement("h3",{style:{fontSize:19,marginBottom:8}}, urgency==="subscription" ? "สมัครแพ็กเกจเรียบร้อยแล้ว" : "นัดหมายเรียบร้อยแล้ว"),
           React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)",lineHeight:1.7,marginBottom:"1.5rem"}},
-            "ทางทีมที่ปรึกษาจะโทรหาคุณ ", React.createElement("strong",null,name), " ที่เบอร์ ", React.createElement("strong",null,phone), React.createElement("br"),
-            urgency==="urgent"?"ภายใน 15 นาทีนี้":(scheduledTime||"ตามเวลาที่นัดหมาย")),
+            urgency==="subscription"
+              ? React.createElement(React.Fragment, null, "ทีมงานจะตรวจสอบการชำระเงินของคุณ ", React.createElement("strong",null,name), " และเปิดสิทธิ์แพ็กเกจ ", React.createElement("strong",null,packName), " ให้ภายในไม่นาน จะติดต่อกลับที่เบอร์ ", React.createElement("strong",null,phone))
+              : React.createElement(React.Fragment, null, "ทางทีมที่ปรึกษาจะโทรหาคุณ ", React.createElement("strong",null,name), " ที่เบอร์ ", React.createElement("strong",null,phone), React.createElement("br"),
+                  urgency==="urgent"?"ภายใน 15 นาทีนี้":(scheduledTime||"ตามเวลาที่นัดหมาย"))),
           React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center"}, onClick:()=>setModalOpen(false)}, "เสร็จสิ้น"))
       )),
     React.createElement("p",{style:{textAlign:"center",fontSize:11.5,color:"var(--text-muted)",maxWidth:560,margin:"1rem auto 0"}}, "ปลดอายัติ.com เป็นเครื่องมือช่วยจัดการข้อมูลและเชื่อมต่อผู้เชี่ยวชาญ ไม่ใช่บริษัทรับปลดอายัดและไม่ใช่สำนักงานกฎหมาย")
