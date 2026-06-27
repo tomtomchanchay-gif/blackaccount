@@ -228,6 +228,20 @@ function TopNav({ view, setView, session }){
 }
 
 /* ===== หน้าแรก: วิเคราะห์เคส ===== */
+const EVENT_LABELS = {
+  "อายัดจากธนาคาร": "บัญชีถูกอายัดจากธนาคาร",
+  "ถูกระงับสงสัยม้า": "บัญชีถูกระงับเพราะสงสัยเป็นบัญชีม้า",
+  "โอนเงินผิดบัญชี": "โอนเงินผิดบัญชี",
+  "ถูกหลอกโอนเงิน": "ถูกหลอกให้โอนเงิน"
+};
+function buildFirstEventText(eventType, eventDate, detail){
+  const label = EVENT_LABELS[eventType] || eventType;
+  let text = label + " — เริ่มเปิดเคสและวิเคราะห์สถานการณ์เบื้องต้น";
+  if (eventDate && eventDate.trim()) text += " (ทราบเรื่องตั้งแต่: " + eventDate.trim() + ")";
+  if (detail && detail.trim()) text += "\nรายละเอียดที่แจ้งไว้: " + detail.trim();
+  return text;
+}
+
 function HomePage({ setView, session, refreshCases }){
   const [step, setStep] = useState("form");
   const [selected, setSelected] = useState(null);
@@ -243,8 +257,11 @@ function HomePage({ setView, session, refreshCases }){
       // ถ้า login อยู่แล้ว (หรือทำงานแบบ local) บันทึกเคสให้อัตโนมัติทันที ไม่ต้องกดซ้ำ
       if (!USE_SUPABASE || session){
         const p = PROFILES[selected];
-        await db.insertCase({ event_type:selected, event_date:eventDate, detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
-        setSavedMsg("บันทึกเคสนี้ลงระบบให้แล้วโดยอัตโนมัติ ดูได้ที่เมนู แดชบอร์ด");
+        const newCase = await db.insertCase({ event_type:selected, event_date:eventDate, detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
+        if (newCase && newCase.id){
+          await db.insertEvent(newCase.id, buildFirstEventText(selected, eventDate, detail));
+        }
+        setSavedMsg("บันทึกเคสนี้ลงระบบให้แล้วโดยอัตโนมัติ พร้อมสรุปลงไทม์ไลน์ให้แล้ว ดูได้ที่เมนู แดชบอร์ด");
         if (refreshCases) refreshCases();
       }
     }, 1800);
@@ -258,8 +275,11 @@ function HomePage({ setView, session, refreshCases }){
       catch(e){ alert("เข้าสู่ระบบไม่สำเร็จ: " + (e&&e.message)); }
       return;
     }
-    await db.insertCase({ event_type:selected, event_date:eventDate, detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
-    setSavedMsg("บันทึกเคสนี้แล้ว ดูได้ที่เมนู แดชบอร์ด");
+    const newCase = await db.insertCase({ event_type:selected, event_date:eventDate, detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
+    if (newCase && newCase.id){
+      await db.insertEvent(newCase.id, buildFirstEventText(selected, eventDate, detail));
+    }
+    setSavedMsg("บันทึกเคสนี้แล้ว พร้อมสรุปลงไทม์ไลน์ให้แล้ว ดูได้ที่เมนู แดชบอร์ด");
     if (refreshCases) refreshCases();
   };
 
@@ -415,7 +435,7 @@ function DashboardPage({ session, cases, docs, events, setView }){
             : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:12}},
                 recentEvents.map(ev=>React.createElement("div",{key:ev.id, style:{fontSize:12.5,color:"var(--text-secondary)"}},
                   React.createElement("span",{style:{color:"var(--text-muted)",fontFamily:"var(--font-mono)",fontSize:11}}, new Date(ev.event_time).toLocaleDateString("th-TH")+" · "),
-                  ev.event_text))),
+                  (ev.event_text||"").split("\n")[0]))),
           React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",fontSize:13}, onClick:()=>setView("timeline")}, "ไปไทม์ไลน์เต็ม"))
       )
     ),
@@ -463,7 +483,7 @@ function TimelinePage({ activeCase, events, onAdd }){
             events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}},
               React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background:"var(--indigo)",boxShadow:"0 0 0 3px rgba(74,58,255,0.18)"}}),
               React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
-              React.createElement("p",{style:{fontSize:14.5,fontWeight:700}}, ev.event_text))))
+              React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text))))
     )
   );
 }
