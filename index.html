@@ -307,7 +307,12 @@ function TopNav({ view, setView, session }){
     React.createElement("div", {style:{display:"flex",alignItems:"center",gap:8}},
       React.createElement("div", {className:"navlinks"},
         PAGES.map(p => React.createElement("button", {key:p.id, className:view===p.id?"active":"", onClick:()=>setView(p.id)}, p.label)),
-        session ? React.createElement("button", {onClick:()=>sb.auth.signOut()}, "ออกจากระบบ") : null
+        session
+          ? React.createElement("button", {onClick:()=>sb.auth.signOut()}, "ออกจากระบบ")
+          : (USE_SUPABASE ? React.createElement("button", {onClick: async ()=>{
+              try { await sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: window.location.origin + window.location.pathname + "?goto=dashboard" } }); }
+              catch(e){ alert("เข้าสู่ระบบไม่สำเร็จ: "+(e&&e.message)); }
+            }}, "เข้าสู่ระบบ") : null)
       ),
       React.createElement(ThemeToggle, null)
     )
