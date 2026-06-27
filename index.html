@@ -114,7 +114,7 @@ const db = {
   },
   async listEvents(caseId){
     if (sb && currentUser){
-      const { data, error } = await sb.from("timeline_events").select("*").eq("case_id", caseId).order("event_time",{ascending:true});
+      const { data, error } = await sb.from("timeline_events").select("*").eq("case_id", caseId).eq("user_id", currentUser.id).order("event_time",{ascending:true});
       if (error){ console.error(error); return []; }
       return data || [];
     }
