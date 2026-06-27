@@ -380,7 +380,10 @@ function HomePage({ setView, session, refreshCases }){
             React.createElement("span",{style:{fontSize:13.5,lineHeight:1.65}}, s)))))),
     React.createElement("div",{className:"glass", style:{maxWidth:680,margin:"0 auto 1.5rem",padding:"1.85rem 2.1rem",textAlign:"center"}},
       savedMsg
-        ? React.createElement("p",{style:{fontSize:14.5,fontWeight:800,color:"#1B9E5A"}}, "✓ " + savedMsg)
+        ? React.createElement(React.Fragment, null,
+            React.createElement("p",{style:{fontSize:14.5,fontWeight:800,color:"#1B9E5A",marginBottom:16}}, "✓ " + savedMsg),
+            React.createElement("button",{className:"btn-primary", style:{margin:"0 auto"}, onClick:()=>setView("dashboard")},
+              "ไปแดชบอร์ด", React.createElement("i",{className:"ti ti-arrow-right"})))
         : React.createElement(React.Fragment, null,
             React.createElement("p",{style:{fontSize:14.5,fontWeight:800,marginBottom:6}}, "บันทึกเคสนี้และดู Checklist เต็มรูปแบบ"),
             React.createElement("p",{style:{fontSize:12.5,color:"var(--text-secondary)",marginBottom:"1.3rem"}}, USE_SUPABASE ? "เข้าสู่ระบบเพื่อบันทึกเคสนี้ลงระบบจริง" : "กดเพื่อบันทึกเคสนี้ไว้ในเครื่อง"),
