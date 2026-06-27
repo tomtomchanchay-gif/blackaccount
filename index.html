@@ -106,6 +106,20 @@
   }
   .staff-entry{border-left:3px solid var(--gold);padding-left:10px;margin-left:-13px;}
 
+  .free-call-card{
+    position:relative;overflow:hidden;border-radius:16px;padding:1.2rem 1.4rem;
+    background:linear-gradient(135deg,#F2A93B,#FF6F59);
+    box-shadow:0 10px 28px -8px rgba(242,169,59,0.5);
+    animation:freeCallPop .5s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes freeCallPop{0%{transform:scale(0.92);opacity:0;}100%{transform:scale(1);opacity:1;}}
+  .free-call-card .shine-sweep{
+    position:absolute;top:0;left:-60%;width:40%;height:100%;
+    background:linear-gradient(120deg,transparent,rgba(255,255,255,0.4),transparent);
+    transform:skewX(-20deg);animation:shineSweep 2.8s ease-in-out infinite;
+  }
+  @keyframes shineSweep{0%{left:-60%;}100%{left:140%;}}
+
   .btn-rainbow{
     position:relative;border:none;border-radius:var(--radius-sm);font-family:var(--font);font-weight:800;
     font-size:14.5px;padding:14px 26px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;color:#fff;
@@ -466,6 +480,14 @@ function hasUnreadStaffReply(caseId, events){
   return new Date(latest.event_time) > new Date(lastSeen);
 }
 
+const FREE_CALL_MARKER = "[FREE_CALL]";
+function isFreeCallEvent(ev){
+  return !!(ev && ev.event_text && ev.event_text.indexOf(FREE_CALL_MARKER) === 0);
+}
+function stripFreeCallMarker(text){
+  return (text || "").replace(FREE_CALL_MARKER, "").trim();
+}
+
 function HomePage({ setView, session, refreshCases }){
   const [step, setStep] = useState("form");
   const [selected, setSelected] = useState(null);
@@ -642,11 +664,15 @@ function DashboardPage({ session, cases, docs, events, setView, activeCase }){
     showUnreadBanner && React.createElement("div",{className:"new-reply-banner"},
       React.createElement("div",{className:"ring"}),
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",position:"relative",zIndex:1}},
-        React.createElement("div",{style:{width:50,height:50,borderRadius:"50%",background:"rgba(255,255,255,0.25)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:24}}, "📩"),
+        React.createElement("div",{style:{width:50,height:50,borderRadius:"50%",background:"rgba(255,255,255,0.25)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:24}}, latestStaffEvent && isFreeCallEvent(latestStaffEvent) ? "🎁" : "📩"),
         React.createElement("div",{style:{flex:1,minWidth:200}},
-          React.createElement("p",{style:{fontSize:16,fontWeight:900,color:"#fff",marginBottom:3}}, "🔔 มีคำตอบใหม่จากทีมงาน!"),
+          React.createElement("p",{style:{fontSize:16,fontWeight:900,color:"#fff",marginBottom:3}}, latestStaffEvent && isFreeCallEvent(latestStaffEvent) ? "🎁 ได้รับสิทธิ์โทรปรึกษาฟรี!" : "🔔 มีคำตอบใหม่จากทีมงาน!"),
           React.createElement("p",{style:{fontSize:12.5,color:"rgba(255,255,255,0.92)",lineHeight:1.5}},
-            latestStaffEvent ? ((latestStaffEvent.role_title||"ทีมงาน") + " ตอบว่า: \u201c" + (latestStaffEvent.event_text||"").split("\n")[0].slice(0,60) + "\u201d") : "")),
+            latestStaffEvent ? (
+              isFreeCallEvent(latestStaffEvent)
+                ? stripFreeCallMarker(latestStaffEvent.event_text).slice(0,70)
+                : ((latestStaffEvent.role_title||"ทีมงาน") + " ตอบว่า: \u201c" + (latestStaffEvent.event_text||"").split("\n")[0].slice(0,60) + "\u201d")
+            ) : "")),
         React.createElement("button",{className:"btn-primary", style:{flexShrink:0,background:"#fff",color:"#E8503D"}, onClick:goReadReply}, "ดูเลย")
       )
     ),
@@ -738,9 +764,9 @@ function DashboardPage({ session, cases, docs, events, setView, activeCase }){
             ? React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginBottom:12}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์")
             : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:12}},
                 recentEvents.map(ev=>React.createElement("div",{key:ev.id, style:{fontSize:12.5,color:"var(--text-secondary)"}},
-                  ev.is_staff ? "👤 " : "",
+                  isFreeCallEvent(ev) ? "🎁 " : (ev.is_staff ? "👤 " : ""),
                   React.createElement("span",{style:{color:"var(--text-muted)",fontFamily:"var(--font-mono)",fontSize:11}}, new Date(ev.event_time).toLocaleDateString("th-TH")+" · "),
-                  (ev.event_text||"").split("\n")[0]))),
+                  isFreeCallEvent(ev) ? stripFreeCallMarker(ev.event_text).split("\n")[0] : (ev.event_text||"").split("\n")[0]))),
           React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",fontSize:13}, onClick:()=>setView("timeline")}, "ไปไทม์ไลน์เต็ม"))
       )
     ),
@@ -850,6 +876,20 @@ function TimelinePage({ activeCase, events, onAdd }){
               const isUnreadStaff = ev.is_staff && lastSeenBeforeOpen && new Date(ev.event_time) > new Date(lastSeenBeforeOpen);
               const isUnreadStaffNoHistory = ev.is_staff && !lastSeenBeforeOpen;
               const shouldGlow = isUnreadStaff || isUnreadStaffNoHistory;
+
+              if (isFreeCallEvent(ev)){
+                return React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}},
+                  React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background:"var(--gold)",boxShadow:"0 0 0 3px rgba(242,169,59,0.25)"}}),
+                  React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:6,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
+                  React.createElement("div",{className:"free-call-card"},
+                    React.createElement("div",{className:"shine-sweep"}),
+                    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,position:"relative",zIndex:1}},
+                      React.createElement("div",{style:{width:40,height:40,borderRadius:"50%",background:"rgba(255,255,255,0.25)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20}}, "🎁"),
+                      React.createElement("div", null,
+                        React.createElement("p",{style:{fontSize:13.5,fontWeight:900,color:"#fff",marginBottom:2}}, "ได้รับสิทธิ์โทรปรึกษาฟรี 1 ครั้ง!"),
+                        React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.92)",lineHeight:1.5}}, stripFreeCallMarker(ev.event_text) + " — มอบโดย " + (ev.role_title||"ทีมงาน"))))));
+              }
+
               return React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem",padding: shouldGlow ? "10px 10px 10px 4px" : "0"}, className: (ev.is_staff?"staff-entry ":"") + (shouldGlow?"glow-highlight":"")},
                 React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
                 ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 " + (ev.role_title || "ทีมงาน")) : null,
@@ -1160,7 +1200,7 @@ function AdminPage(){
         payment_status: "ใช้สิทธิ์โทรฟรี — แอดมินให้สิทธิ์"
       });
 
-      const row = await db.insertEventAsStaff(selectedCase.id, "ทีมงานมอบสิทธิ์โทรปรึกษาฟรี 1 ครั้งให้กับเคสนี้ จะติดต่อกลับที่เบอร์ " + freeCallPhone.trim() + " ในนาม " + freeCallName.trim(), selectedCase.user_id, myRoleTitle);
+      const row = await db.insertEventAsStaff(selectedCase.id, "[FREE_CALL]จะติดต่อกลับที่เบอร์ " + freeCallPhone.trim() + " ในนาม " + freeCallName.trim(), selectedCase.user_id, myRoleTitle);
       setEvents(prev=>[...prev, row]);
     }
     setGrantingFreeCall(false);
@@ -1233,11 +1273,25 @@ function AdminPage(){
         ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14,marginBottom:"1.6rem"}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์เคสนี้")
         : React.createElement("div",{style:{position:"relative",paddingLeft:28,marginBottom:"1.6rem"}},
             React.createElement("div",{style:{position:"absolute",left:6,top:6,bottom:6,width:2,background:"linear-gradient(180deg,var(--indigo),var(--border))"}}),
-            events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}, className: ev.is_staff?"staff-entry":""},
-              React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
-              ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 " + (ev.role_title || "ทีมงาน")) : null,
-              React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
-              React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text)))),
+            events.map(ev=>{
+              if (isFreeCallEvent(ev)){
+                return React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}},
+                  React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background:"var(--gold)",boxShadow:"0 0 0 3px rgba(242,169,59,0.25)"}}),
+                  React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:6,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
+                  React.createElement("div",{className:"free-call-card"},
+                    React.createElement("div",{className:"shine-sweep"}),
+                    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,position:"relative",zIndex:1}},
+                      React.createElement("div",{style:{width:40,height:40,borderRadius:"50%",background:"rgba(255,255,255,0.25)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20}}, "🎁"),
+                      React.createElement("div", null,
+                        React.createElement("p",{style:{fontSize:13.5,fontWeight:900,color:"#fff",marginBottom:2}}, "มอบสิทธิ์โทรปรึกษาฟรี 1 ครั้ง"),
+                        React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.92)",lineHeight:1.5}}, stripFreeCallMarker(ev.event_text) + " — มอบโดย " + (ev.role_title||"ทีมงาน"))))));
+              }
+              return React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}, className: ev.is_staff?"staff-entry":""},
+                React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
+                ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 " + (ev.role_title || "ทีมงาน")) : null,
+                React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
+                React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text));
+            })),
 
       !isClosed && React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",background:"linear-gradient(135deg,rgba(242,169,59,0.08),var(--surface))",borderColor:"rgba(242,169,59,0.3)"}},
         React.createElement("p",{style:{fontSize:13,fontWeight:800,marginBottom:10,display:"flex",alignItems:"center",gap:6}}, "👤 ตอบในนามทีมงาน (เคสนี้) — แสดงตำแหน่ง: " + myRoleTitle),
