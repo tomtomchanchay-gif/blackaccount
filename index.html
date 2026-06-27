@@ -238,7 +238,16 @@ function HomePage({ setView, session, refreshCases }){
   const analyze = () => {
     if (!selected) { alert("กรุณาเลือกประเภทเหตุการณ์ก่อนครับ"); return; }
     setStep("loading");
-    setTimeout(()=>setStep("result"), 1800);
+    setTimeout(async ()=>{
+      setStep("result");
+      // ถ้า login อยู่แล้ว (หรือทำงานแบบ local) บันทึกเคสให้อัตโนมัติทันที ไม่ต้องกดซ้ำ
+      if (!USE_SUPABASE || session){
+        const p = PROFILES[selected];
+        await db.insertCase({ event_type:selected, event_date:eventDate, detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
+        setSavedMsg("บันทึกเคสนี้ลงระบบให้แล้วโดยอัตโนมัติ ดูได้ที่เมนู แดชบอร์ด");
+        if (refreshCases) refreshCases();
+      }
+    }, 1800);
   };
 
   const saveCase = async () => {
@@ -331,29 +340,91 @@ function HomePage({ setView, session, refreshCases }){
 }
 
 /* ===== Dashboard ===== */
-function DashboardPage({ session, cases }){
+const CHECKLIST_BY_TYPE = {
+  "อายัดจากธนาคาร": ["บัตรประชาชน","สำเนา Statement ย้อนหลัง","หนังสือแจ้งอายัดจากธนาคาร","หลักฐานแหล่งที่มาของเงิน"],
+  "ถูกระงับสงสัยม้า": ["บัตรประชาชน","หลักฐานการใช้บัญชีจริง","หนังสือชี้แจงต่อธนาคาร","หลักฐานความสัมพันธ์กับผู้โอนเงิน (ถ้ามี)"],
+  "โอนเงินผิดบัญชี": ["สลิปการโอนเงิน","ใบรับแจ้งความ (ถ้ามี)","เลขที่อ้างอิงการโอน","บัตรประชาชน"],
+  "ถูกหลอกโอนเงิน": ["สลิปการโอนเงินทั้งหมด","หลักฐานแชท/บทสนทนากับมิจฉาชีพ","ใบแจ้งความออนไลน์","บัตรประชาชน"]
+};
+
+function DashboardPage({ session, cases, docs, events, setView }){
   const activeCase = cases && cases.length ? cases[0] : null;
   const displayName = session && session.user ? (session.user.user_metadata?.full_name || session.user.email) : "คุณผู้ใช้";
+
+  const checklist = activeCase ? (CHECKLIST_BY_TYPE[activeCase.event_type] || []) : [];
+  const docCount = docs ? docs.length : 0;
+  const checklistDone = Math.min(docCount, checklist.length);
+  const recentDocs = (docs || []).slice(0, 3);
+  const recentEvents = (events || []).slice(-3).reverse();
+
   return React.createElement("div",{className:"fade-up"},
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.85rem",flexWrap:"wrap",gap:"1rem"}},
       React.createElement("div", null,
         React.createElement("h2",{style:{fontSize:23,marginBottom:5}}, "สวัสดี "+displayName),
         React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)"}}, activeCase ? ("เคสล่าสุด: "+activeCase.event_type) : "ยังไม่มีเคสที่บันทึกไว้"))
     ),
+
     !activeCase ? React.createElement("div",{className:"glass", style:{padding:"1.6rem",textAlign:"center"}},
-      React.createElement("p",{style:{fontSize:14,color:"var(--text-secondary)"}}, "ยังไม่มีเคสในระบบ ไปวิเคราะห์เคสแรกของคุณที่หน้าแรกได้เลยครับ"))
-    : React.createElement("div",{className:"glass", style:{padding:"1.6rem 1.85rem",marginBottom:"1.6rem"}},
+      React.createElement("p",{style:{fontSize:14,color:"var(--text-secondary)",marginBottom:14}}, "ยังไม่มีเคสในระบบ ไปวิเคราะห์เคสแรกของคุณที่หน้าแรกได้เลยครับ"),
+      React.createElement("button",{className:"btn-primary", style:{margin:"0 auto"}, onClick:()=>setView("home")}, "ไปวิเคราะห์เคส"))
+
+    : React.createElement(React.Fragment, null,
+
+      /* การ์ดสรุปเคส + รายละเอียดที่กรอกไว้ */
+      React.createElement("div",{className:"glass", style:{padding:"1.6rem 1.85rem",marginBottom:"1.6rem"}},
         React.createElement("div",{style:{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:13}},
           React.createElement("span",{style:{fontSize:14,color:"var(--text-secondary)"}}, "ระดับความเร่งด่วน"),
-          React.createElement("span",{style:{fontSize:32,fontWeight:800,color:"var(--indigo)"}}, (activeCase.urgency_pct||0)+"%")),
-        React.createElement("div",{style:{height:9,background:"rgba(46,31,76,0.08)",borderRadius:8,overflow:"hidden"}},
+          React.createElement("span",{style:{fontSize:32,fontWeight:800,color:"var(--indigo)"}}, (activeCase.urgency_pct||0)+"% · "+(activeCase.urgency_label||""))),
+        React.createElement("div",{style:{height:9,background:"rgba(46,31,76,0.08)",borderRadius:8,overflow:"hidden",marginBottom:14}},
           React.createElement("div",{style:{height:"100%",width:(activeCase.urgency_pct||0)+"%",background:"linear-gradient(90deg,var(--indigo),var(--gold))",borderRadius:8}})),
-        React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginTop:11}}, "สถานะ: "+activeCase.status)),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,borderTop:"1px solid var(--border)",paddingTop:14}},
+          React.createElement("div", null,
+            React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:3}}, "สถานะ"),
+            React.createElement("p",{style:{fontSize:13.5,fontWeight:700}}, activeCase.status||"-")),
+          React.createElement("div", null,
+            React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:3}}, "ทราบเรื่องตั้งแต่"),
+            React.createElement("p",{style:{fontSize:13.5,fontWeight:700}}, activeCase.event_date || "ไม่ได้ระบุไว้")),
+          React.createElement("div",{style:{gridColumn:"1 / -1"}},
+            React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:3}}, "รายละเอียดที่บันทึกไว้"),
+            React.createElement("p",{style:{fontSize:13.5,lineHeight:1.6}}, activeCase.detail || "ไม่ได้กรอกรายละเอียดไว้")))
+      ),
+
+      /* แถวการ์ด: Checklist / เอกสาร / ไทม์ไลน์ */
+      React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,marginBottom:"1.6rem"}},
+
+        React.createElement("div",{className:"glass", style:{padding:"1.3rem"}},
+          React.createElement("p",{style:{fontSize:13.5,fontWeight:800,marginBottom:10}}, "📋 Checklist เอกสาร"),
+          React.createElement("p",{style:{fontSize:12.5,color:"var(--text-secondary)",marginBottom:10}}, "อัปโหลดแล้ว "+checklistDone+" จาก "+checklist.length+" รายการ (โดยประมาณ)"),
+          React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6,marginBottom:12}},
+            checklist.map((item,i)=>React.createElement("div",{key:i, style:{display:"flex",alignItems:"center",gap:8,fontSize:12.5,color:i<checklistDone?"var(--text-primary)":"var(--text-muted)"}},
+              React.createElement("span", null, i<checklistDone?"✅":"⬜"), item))),
+          React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",fontSize:13}, onClick:()=>setView("documents")}, "ไปอัปโหลดเอกสาร")),
+
+        React.createElement("div",{className:"glass", style:{padding:"1.3rem"}},
+          React.createElement("p",{style:{fontSize:13.5,fontWeight:800,marginBottom:10}}, "📁 เอกสารล่าสุด"),
+          recentDocs.length===0
+            ? React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginBottom:12}}, "ยังไม่มีเอกสารอัปโหลด")
+            : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:12}},
+                recentDocs.map(d=>React.createElement("div",{key:d.id, style:{fontSize:12.5,color:"var(--text-secondary)",wordBreak:"break-word"}}, "• "+d.file_name))),
+          React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",fontSize:13}, onClick:()=>setView("documents")}, "ดูเอกสารทั้งหมด")),
+
+        React.createElement("div",{className:"glass", style:{padding:"1.3rem"}},
+          React.createElement("p",{style:{fontSize:13.5,fontWeight:800,marginBottom:10}}, "🕒 ความคืบหน้าล่าสุด"),
+          recentEvents.length===0
+            ? React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginBottom:12}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์")
+            : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:12}},
+                recentEvents.map(ev=>React.createElement("div",{key:ev.id, style:{fontSize:12.5,color:"var(--text-secondary)"}},
+                  React.createElement("span",{style:{color:"var(--text-muted)",fontFamily:"var(--font-mono)",fontSize:11}}, new Date(ev.event_time).toLocaleDateString("th-TH")+" · "),
+                  ev.event_text))),
+          React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",fontSize:13}, onClick:()=>setView("timeline")}, "ไปไทม์ไลน์เต็ม"))
+      )
+    ),
+
     React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",display:"flex",alignItems:"center",gap:"1.1rem",flexWrap:"wrap",background:"linear-gradient(135deg,rgba(255,111,89,0.06),var(--surface))",borderColor:"rgba(255,111,89,0.2)"}},
       React.createElement("div",{style:{flex:1,minWidth:200}},
         React.createElement("p",{style:{fontSize:14,fontWeight:800,marginBottom:2}}, "ติดขัดตรงไหน คุยกับผู้เชี่ยวชาญได้เลย"),
         React.createElement("p",{style:{fontSize:12.5,color:"var(--text-secondary)"}}, "ช่วยดูเคสนี้และแนะนำขั้นตอนถัดไปให้ทันที")),
-      React.createElement("a",{href:"#help", className:"btn-primary", style:{flexShrink:0}}, "โทรปรึกษาตอนนี้"))
+      React.createElement("button",{className:"btn-primary", style:{flexShrink:0}, onClick:()=>setView("help")}, "โทรปรึกษาตอนนี้"))
   );
 }
 
@@ -603,7 +674,7 @@ function App({ session }){
     React.createElement("div",{className:"wrap"},
       React.createElement("div",{className:"page"},
         view==="home" && React.createElement(HomePage, {setView, session, refreshCases}),
-        view==="dashboard" && React.createElement(DashboardPage, {session, cases}),
+        view==="dashboard" && React.createElement(DashboardPage, {session, cases, docs, events, setView}),
         view==="documents" && React.createElement(DocumentsPage, {docs, onUpload:handleUpload, uploading}),
         view==="timeline" && React.createElement(TimelinePage, {activeCase, events, onAdd:handleAddEvent}),
         view==="knowledge" && React.createElement(KnowledgePage, null),
