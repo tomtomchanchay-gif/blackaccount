@@ -16,12 +16,20 @@
     --radius:16px;--radius-sm:11px;
     --font:"Noto Sans Thai","Inter",-apple-system,sans-serif;--font-mono:"IBM Plex Mono",monospace;
   }
+  :root[data-theme="dark"]{
+    --indigo:#7C6CFF;--indigo-deep:#5B4BFF;--gold:#F2B95B;--coral:#FF8770;
+    --bg:#0F0D1A;--surface:rgba(255,255,255,0.05);--surface-solid:#181527;
+    --border:rgba(255,255,255,0.08);--border-strong:rgba(255,255,255,0.16);
+    --text-primary:#F1EEFB;--text-secondary:#B7AFD6;--text-muted:#7E7699;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
   html{scroll-behavior:smooth;}
-  body{background:var(--bg);font-family:var(--font);color:var(--text-primary);min-height:100vh;overflow-x:hidden;position:relative;}
+  body{background:var(--bg);font-family:var(--font);color:var(--text-primary);min-height:100vh;overflow-x:hidden;position:relative;transition:background .35s ease,color .35s ease;}
   #bgfx{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
   #bgfx::before{content:'';position:absolute;top:-20%;right:-10%;width:60%;height:60%;border-radius:50%;background:radial-gradient(circle,rgba(74,58,255,0.10),transparent 70%);filter:blur(40px);}
   #bgfx::after{content:'';position:absolute;bottom:-15%;left:-10%;width:55%;height:55%;border-radius:50%;background:radial-gradient(circle,rgba(242,169,59,0.12),transparent 70%);filter:blur(40px);}
+  :root[data-theme="dark"] #bgfx::before{background:radial-gradient(circle,rgba(124,108,255,0.16),transparent 70%);}
+  :root[data-theme="dark"] #bgfx::after{background:radial-gradient(circle,rgba(242,185,91,0.10),transparent 70%);}
   .wrap{position:relative;z-index:2;}
   #topnav{position:fixed;top:0;left:0;right:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:16px 32px;background:rgba(250,247,242,0.85);backdrop-filter:blur(18px);border-bottom:1px solid var(--border);}
   #topnav .brand{display:flex;align-items:center;gap:11px;cursor:pointer;}
@@ -52,6 +60,10 @@
   @keyframes fadeup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
   .fade-up{animation:fadeup .45s cubic-bezier(.16,1,.3,1);}
   #sos-btn{position:fixed;bottom:24px;right:24px;z-index:60;background:linear-gradient(135deg,var(--coral),#E8503D);color:#fff;border:none;border-radius:50px;padding:15px 22px;font-family:var(--font);font-weight:800;font-size:14px;display:flex;align-items:center;gap:9px;cursor:pointer;box-shadow:0 10px 28px -6px rgba(255,111,89,0.55);}
+  #theme-toggle{background:var(--surface);border:1.5px solid var(--border-strong);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:transform .25s ease,background .25s ease;flex-shrink:0;}
+  #theme-toggle:hover{transform:scale(1.08) rotate(15deg);}
+  .staff-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--indigo),var(--indigo-deep));padding:2px 9px;border-radius:10px;margin-bottom:4px;}
+  .staff-entry{border-left:3px solid var(--gold);padding-left:10px;margin-left:-13px;}
   ::-webkit-scrollbar{width:10px;}::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px;}
   @media (max-width:760px){.navlinks{display:none;}.page{padding:104px 18px 50px;}}
 </style>
@@ -68,6 +80,11 @@
 <script>
   window.SUPABASE_URL = "https://ssjngqwsibvaeumomwgi.supabase.co";
   window.SUPABASE_ANON_KEY = "sb_publishable_JCU8lrENCv7oWLd63v5wMA_RTPT3DHA";
+
+  // รหัส PIN สำหรับเจ้าหน้าที่ ใช้ปลดล็อกช่องพิมพ์ลงไทม์ไลน์แบบ "ทีมงาน" ในหน้าไทม์ไลน์
+  // คำเตือน: นี่เป็นการกันแบบพื้นฐานเท่านั้น ไม่ใช่ระบบสิทธิ์ที่ปลอดภัยระดับสูง
+  // ใครก็ตามที่เปิดดูโค้ดเว็บ (view source) จะเห็นรหัสนี้ได้ ควรเปลี่ยนเป็นรหัสของคุณเองและไม่บอกใคร
+  window.STAFF_PIN = "STAFF2569";
 </script>
 
 <script type="text/app" id="appcode">
@@ -121,8 +138,8 @@ const db = {
     const local = localGet();
     return ((local && local.events) || []).filter(e=>e.case_id===caseId);
   },
-  async insertEvent(caseId, text){
-    const row = { id: uid(), case_id: caseId, event_text: text, event_time: nowISO() };
+  async insertEvent(caseId, text, isStaff){
+    const row = { id: uid(), case_id: caseId, event_text: text, event_time: nowISO(), is_staff: !!isStaff };
     if (sb && currentUser){
       row.user_id = currentUser.id;
       const { data, error } = await sb.from("timeline_events").insert(row).select().single();
@@ -206,6 +223,23 @@ const PAGES = [
   {id:"help", label:"ช่วยเหลือ / แพ็กเกจ"}
 ];
 
+function ThemeToggle(){
+  const [dark, setDark] = useState(false);
+  useEffect(()=>{
+    let saved = "light";
+    try { saved = localStorage.getItem("pordaiyat_theme") || "light"; } catch(e){}
+    setDark(saved === "dark");
+    document.documentElement.setAttribute("data-theme", saved);
+  }, []);
+  const toggle = () => {
+    const next = dark ? "light" : "dark";
+    setDark(!dark);
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("pordaiyat_theme", next); } catch(e){}
+  };
+  return React.createElement("button",{id:"theme-toggle", onClick:toggle, title: dark?"สลับเป็นโหมดสว่าง":"สลับเป็นโหมดกลางคืน"}, dark ? "🌙" : "☀️");
+}
+
 function TopNav({ view, setView, session }){
   return React.createElement("nav", {id:"topnav"},
     React.createElement("div", {className:"brand", onClick:()=>setView("home")},
@@ -220,9 +254,12 @@ function TopNav({ view, setView, session }){
         React.createElement("path", {d:"M20 25.6V27.6", stroke:"#2E1F8C", strokeWidth:1.7, strokeLinecap:"round"})),
       React.createElement("span", null, "ปลดอายัติ", React.createElement("span", {style:{color:"var(--text-muted)",fontWeight:600}}, ".com"))
     ),
-    React.createElement("div", {className:"navlinks"},
-      PAGES.map(p => React.createElement("button", {key:p.id, className:view===p.id?"active":"", onClick:()=>setView(p.id)}, p.label)),
-      session ? React.createElement("button", {onClick:()=>sb.auth.signOut()}, "ออกจากระบบ") : null
+    React.createElement("div", {style:{display:"flex",alignItems:"center",gap:8}},
+      React.createElement("div", {className:"navlinks"},
+        PAGES.map(p => React.createElement("button", {key:p.id, className:view===p.id?"active":"", onClick:()=>setView(p.id)}, p.label)),
+        session ? React.createElement("button", {onClick:()=>sb.auth.signOut()}, "ออกจากระบบ") : null
+      ),
+      React.createElement(ThemeToggle, null)
     )
   );
 }
@@ -439,6 +476,7 @@ function DashboardPage({ session, cases, docs, events, setView }){
             ? React.createElement("p",{style:{fontSize:12.5,color:"var(--text-muted)",marginBottom:12}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์")
             : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8,marginBottom:12}},
                 recentEvents.map(ev=>React.createElement("div",{key:ev.id, style:{fontSize:12.5,color:"var(--text-secondary)"}},
+                  ev.is_staff ? "👤 " : "",
                   React.createElement("span",{style:{color:"var(--text-muted)",fontFamily:"var(--font-mono)",fontSize:11}}, new Date(ev.event_time).toLocaleDateString("th-TH")+" · "),
                   (ev.event_text||"").split("\n")[0]))),
           React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center",fontSize:13}, onClick:()=>setView("timeline")}, "ไปไทม์ไลน์เต็ม"))
@@ -473,22 +511,56 @@ function DocumentsPage({ docs, onUpload, uploading }){
 /* ===== Timeline ===== */
 function TimelinePage({ activeCase, events, onAdd }){
   const [text, setText] = useState("");
+  const [staffUnlocked, setStaffUnlocked] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [staffText, setStaffText] = useState("");
+
+  useEffect(()=>{
+    try { if (sessionStorage.getItem("pordaiyat_staff_ok") === "1") setStaffUnlocked(true); } catch(e){}
+  }, []);
+
+  const tryUnlock = () => {
+    if (pinInput === (window.STAFF_PIN || "")){
+      setStaffUnlocked(true);
+      try { sessionStorage.setItem("pordaiyat_staff_ok","1"); } catch(e){}
+    } else {
+      alert("รหัสไม่ถูกต้องครับ");
+    }
+    setPinInput("");
+  };
+
   return React.createElement("div",{className:"fade-up"},
     React.createElement("h2",{style:{fontSize:21,marginBottom:"1.6rem"}}, "ไทม์ไลน์เคสของคุณ"),
     !activeCase ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "สร้างเคสก่อนจากหน้าแรก ถึงจะเพิ่มไทม์ไลน์ได้") :
     React.createElement(React.Fragment, null,
+
       React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",marginBottom:"1.6rem"}},
         React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
           React.createElement("input",{type:"text", placeholder:"เช่น โทรติดต่อธนาคารเพื่อสอบถามสาเหตุ", value:text, onChange:e=>setText(e.target.value), style:{flex:1,minWidth:200}}),
-          React.createElement("button",{className:"btn-primary", onClick:()=>{ if(text.trim()){ onAdd(text.trim()); setText(""); } }}, "เพิ่ม"))),
+          React.createElement("button",{className:"btn-primary", onClick:()=>{ if(text.trim()){ onAdd(text.trim(), false); setText(""); } }}, "เพิ่ม"))),
+
       (!events || events.length===0)
-        ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์")
-        : React.createElement("div",{style:{position:"relative",paddingLeft:28}},
+        ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14,marginBottom:"1.6rem"}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์")
+        : React.createElement("div",{style:{position:"relative",paddingLeft:28,marginBottom:"1.6rem"}},
             React.createElement("div",{style:{position:"absolute",left:6,top:6,bottom:6,width:2,background:"linear-gradient(180deg,var(--indigo),var(--border))"}}),
-            events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}},
-              React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background:"var(--indigo)",boxShadow:"0 0 0 3px rgba(74,58,255,0.18)"}}),
+            events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}, className: ev.is_staff?"staff-entry":""},
+              React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
+              ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 ทีมงาน") : null,
               React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
-              React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text))))
+              React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text)))),
+
+      /* ===== โซนเจ้าหน้าที่ ===== */
+      !staffUnlocked
+        ? React.createElement("details", {className:"glass", style:{padding:"1.1rem 1.4rem"}},
+            React.createElement("summary",{style:{cursor:"pointer",fontSize:12.5,color:"var(--text-muted)",fontWeight:700}}, "🔒 สำหรับเจ้าหน้าที่"),
+            React.createElement("div",{style:{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}},
+              React.createElement("input",{type:"password", placeholder:"กรอกรหัสเจ้าหน้าที่", value:pinInput, onChange:e=>setPinInput(e.target.value), onKeyDown:e=>{if(e.key==="Enter") tryUnlock();}, style:{flex:1,minWidth:160}}),
+              React.createElement("button",{className:"btn-ghost", onClick:tryUnlock}, "ปลดล็อก")))
+        : React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",background:"linear-gradient(135deg,rgba(242,169,59,0.08),var(--surface))",borderColor:"rgba(242,169,59,0.3)"}},
+            React.createElement("p",{style:{fontSize:13,fontWeight:800,marginBottom:10,display:"flex",alignItems:"center",gap:6}}, "👤 พิมพ์ในนามทีมงาน"),
+            React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+              React.createElement("input",{type:"text", placeholder:"เช่น ธนาคารตอบกลับแล้ว อยู่ระหว่างตรวจสอบเอกสาร", value:staffText, onChange:e=>setStaffText(e.target.value), style:{flex:1,minWidth:200}}),
+              React.createElement("button",{className:"btn-primary", onClick:()=>{ if(staffText.trim()){ onAdd(staffText.trim(), true); setStaffText(""); } }}, "โพสต์ในนามทีมงาน")))
     )
   );
 }
@@ -710,8 +782,8 @@ function App({ session }){
     setDocs(prev=>[row, ...prev]);
     setUploading(false);
   };
-  const handleAddEvent = async (text) => {
-    const row = await db.insertEvent(activeCase.id, text);
+  const handleAddEvent = async (text, isStaff) => {
+    const row = await db.insertEvent(activeCase.id, text, isStaff);
     setEvents(prev=>[...prev, row]);
   };
 
