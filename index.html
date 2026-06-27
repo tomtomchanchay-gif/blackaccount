@@ -269,12 +269,17 @@ function HomePage({ setView, session, refreshCases }){
 
   const saveCase = async () => {
     if (!selected) return;
-    const p = PROFILES[selected];
     if (USE_SUPABASE && !session){
-      try { await sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: window.location.origin + window.location.pathname } }); }
+      // เก็บข้อมูลฟอร์มไว้ก่อนเปลี่ยนหน้าไป Google เพราะหน้าเว็บจะโหลดใหม่ทั้งหมดหลัง login
+      // และ state ของฟอร์มทั้งหมดจะหายไป ต้องกู้ข้อมูลนี้กลับมาบันทึกตอนกลับมาที่เว็บ
+      try {
+        localStorage.setItem("pordaiyat_pending_case", JSON.stringify({ event_type:selected, event_date:eventDate, detail }));
+      } catch(e){}
+      try { await sb.auth.signInWithOAuth({ provider:"google", options:{ redirectTo: window.location.origin + window.location.pathname + "?goto=dashboard" } }); }
       catch(e){ alert("เข้าสู่ระบบไม่สำเร็จ: " + (e&&e.message)); }
       return;
     }
+    const p = PROFILES[selected];
     const newCase = await db.insertCase({ event_type:selected, event_date:eventDate, detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
     if (newCase && newCase.id){
       await db.insertEvent(newCase.id, buildFirstEventText(selected, eventDate, detail));
@@ -660,7 +665,8 @@ function LoginScreen(){
 
 /* ===== App หลัก (หลัง login หรือโหมด local) ===== */
 function App({ session }){
-  const [view, setView] = useState("home");
+  const initialView = (new URLSearchParams(window.location.search).get("goto") === "dashboard") ? "dashboard" : "home";
+  const [view, setView] = useState(initialView);
   const [cases, setCases] = useState([]);
   const [docs, setDocs] = useState([]);
   const [events, setEvents] = useState([]);
@@ -671,7 +677,29 @@ function App({ session }){
   const activeCase = cases && cases.length ? cases[0] : null;
   const refreshEvents = async () => { if(activeCase) setEvents(await db.listEvents(activeCase.id)); };
 
-  useEffect(()=>{ refreshCases(); refreshDocs(); }, []);
+  useEffect(()=>{
+    (async ()=>{
+      // กู้ข้อมูลฟอร์มที่เก็บไว้ก่อนไป login กับ Google (ถ้ามี) แล้วบันทึกเป็นเคสให้อัตโนมัติ
+      if (USE_SUPABASE && session){
+        let pending = null;
+        try { pending = JSON.parse(localStorage.getItem("pordaiyat_pending_case") || "null"); } catch(e){}
+        if (pending && pending.event_type){
+          const p = PROFILES[pending.event_type];
+          if (p){
+            const newCase = await db.insertCase({ event_type:pending.event_type, event_date:pending.event_date, detail:pending.detail, urgency_pct:p.pct, urgency_label:p.label, status:"เปิดเคส" });
+            if (newCase && newCase.id){
+              await db.insertEvent(newCase.id, buildFirstEventText(pending.event_type, pending.event_date, pending.detail));
+            }
+          }
+          try { localStorage.removeItem("pordaiyat_pending_case"); } catch(e){}
+          // ล้าง query param ?goto=dashboard ออกจาก URL หลังใช้งานแล้ว ไม่ให้ค้างอยู่
+          try { window.history.replaceState({}, "", window.location.pathname); } catch(e){}
+        }
+      }
+      refreshCases();
+      refreshDocs();
+    })();
+  }, []);
   useEffect(()=>{ refreshEvents(); }, [activeCase && activeCase.id]);
 
   const handleUpload = async (e) => {
