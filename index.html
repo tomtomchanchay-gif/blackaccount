@@ -81,6 +81,29 @@
   #theme-toggle{background:var(--surface);border:1.5px solid var(--border-strong);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;transition:transform .25s ease,background .25s ease;flex-shrink:0;}
   #theme-toggle:hover{transform:scale(1.08) rotate(15deg);}
   .staff-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--indigo),var(--indigo-deep));padding:2px 9px;border-radius:10px;margin-bottom:4px;}
+
+  .nav-dot{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--coral);box-shadow:0 0 0 2px var(--bg);animation:navDotPulse 1.4s ease-in-out infinite;}
+  @keyframes navDotPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(255,111,89,0.6),0 0 0 2px var(--bg);}50%{transform:scale(1.25);box-shadow:0 0 0 6px rgba(255,111,89,0),0 0 0 2px var(--bg);}}
+
+  .new-reply-banner{
+    position:relative;overflow:hidden;border-radius:18px;padding:1.5rem 1.8rem;margin-bottom:1.6rem;
+    background:linear-gradient(120deg,#FF6F59,#F2A93B,#FF6F59);background-size:200% 200%;
+    animation:bannerGradient 3s ease infinite, bannerShake 2.2s ease-in-out infinite;
+    box-shadow:0 14px 38px -10px rgba(255,111,89,0.55);
+  }
+  @keyframes bannerGradient{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+  @keyframes bannerShake{0%,92%,100%{transform:translateX(0) rotate(0);}94%{transform:translateX(-3px) rotate(-0.4deg);}96%{transform:translateX(3px) rotate(0.4deg);}98%{transform:translateX(-2px) rotate(-0.2deg);}}
+  .new-reply-banner .ring{
+    position:absolute;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,0.18);
+    top:-30px;right:-20px;animation:ringPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes ringPulse{0%,100%{transform:scale(1);opacity:0.5;}50%{transform:scale(1.3);opacity:0.15;}}
+
+  .glow-highlight{animation:glowHighlight 2s ease-in-out 3;border-radius:13px;}
+  @keyframes glowHighlight{
+    0%,100%{box-shadow:0 0 0 0 rgba(242,169,59,0);background:transparent;}
+    50%{box-shadow:0 0 0 8px rgba(242,169,59,0.18);background:rgba(242,169,59,0.08);}
+  }
   .staff-entry{border-left:3px solid var(--gold);padding-left:10px;margin-left:-13px;}
 
   .btn-rainbow{
@@ -281,6 +304,19 @@ const db = {
       localSet(local);
     }
     return { id: caseId, status };
+  },
+  async markAdminFirstSeen(caseId){
+    if (!sb) return null;
+    const ts = nowISO();
+    const { data, error } = await sb.from("cases").update({admin_first_seen_at: ts}).eq("id", caseId).select().single();
+    if (error){ console.error("markAdminFirstSeen error:", error); return null; }
+    return data;
+  },
+  async setFreeCallCredit(caseId, value){
+    if (!sb) return null;
+    const { data, error } = await sb.from("cases").update({free_call_credit: value}).eq("id", caseId).select().single();
+    if (error){ console.error("setFreeCallCredit error:", error); return null; }
+    return data;
   }
 };
 
@@ -333,7 +369,7 @@ function ThemeToggle(){
   return React.createElement("button",{id:"theme-toggle", onClick:toggle, title: dark?"สลับเป็นโหมดสว่าง":"สลับเป็นโหมดกลางคืน"}, dark ? "🌙" : "☀️");
 }
 
-function TopNav({ view, setView, session, isStaff }){
+function TopNav({ view, setView, session, isStaff, hasUnread }){
   return React.createElement("nav", {id:"topnav"},
     React.createElement("div", {className:"brand", onClick:()=>setView("home")},
       React.createElement("svg", {width:36, height:36, viewBox:"0 0 40 40", fill:"none"},
@@ -349,7 +385,9 @@ function TopNav({ view, setView, session, isStaff }){
     ),
     React.createElement("div", {style:{display:"flex",alignItems:"center",gap:8}},
       React.createElement("div", {className:"navlinks"},
-        PAGES.map(p => React.createElement("button", {key:p.id, className:view===p.id?"active":"", onClick:()=>setView(p.id)}, p.label)),
+        PAGES.map(p => React.createElement("button", {key:p.id, className:view===p.id?"active":"", style:{position:"relative"}, onClick:()=>setView(p.id)},
+          p.label,
+          (p.id==="timeline" && hasUnread) ? React.createElement("span",{className:"nav-dot"}) : null)),
         isStaff ? React.createElement("button", {className:view==="admin"?"active":"", onClick:()=>setView("admin"), style:{color:"var(--gold)",fontWeight:800}}, "👤 แอดมิน") : null,
         session
           ? React.createElement("button", {onClick:()=>sb.auth.signOut()}, "ออกจากระบบ")
@@ -378,6 +416,16 @@ function buildFirstEventText(eventType, eventDate, detail){
   return text;
 }
 
+/* ===== ข้อความตอบรับอัตโนมัติ ตอนแอดมินเปิดดูเคสเป็นครั้งแรก ปรับตามประเภท/ความเร่งด่วนของเคส ===== */
+function buildAdminAutoReply(theCase){
+  const label = EVENT_LABELS[theCase.event_type] || theCase.event_type || "เคสนี้";
+  const urgent = (theCase.urgency_pct || 0) >= 80;
+  if (urgent){
+    return "ทีมงานได้รับเรื่อง \u201c" + label + "\u201d ของคุณแล้วครับ เนื่องจากเป็นกรณีเร่งด่วน ทีมงานจะติดต่อกลับโดยเร็วที่สุด กรุณาเตรียมเอกสารตามที่ระบบแนะนำไว้ให้พร้อมระหว่างรอครับ";
+  }
+  return "ทีมงานได้รับเรื่อง \u201c" + label + "\u201d ของคุณแล้วครับ กำลังตรวจสอบรายละเอียดและจะอัปเดตความคืบหน้าให้ทราบเร็วๆนี้ หากมีเอกสารเพิ่มเติม สามารถอัปโหลดไว้ก่อนได้เลยครับ";
+}
+
 /* ===== ตัวเลขนับขึ้นแบบมีแอนิเมชัน ใช้กับ % ความเร่งด่วน และตัวเลขสถิติต่างๆ ===== */
 function CountUp({ value, duration }){
   const [display, setDisplay] = useState(0);
@@ -396,6 +444,26 @@ function CountUp({ value, duration }){
     return ()=>{};
   }, [value]);
   return display;
+}
+
+/* ===== ติดตามว่ามีคำตอบใหม่จากเจ้าหน้าที่ที่ยังไม่เคยเห็นไหม (เก็บไว้ในเครื่อง ต่อ 1 เคส) ===== */
+function getLastSeenStaffReply(caseId){
+  try { return localStorage.getItem("pordaiyat_last_seen_staff_" + caseId) || null; } catch(e){ return null; }
+}
+function markStaffRepliesSeen(caseId, latestTime){
+  try { localStorage.setItem("pordaiyat_last_seen_staff_" + caseId, latestTime); } catch(e){}
+}
+function getLatestStaffEvent(events){
+  const staffEvents = (events || []).filter(e => e.is_staff);
+  if (staffEvents.length === 0) return null;
+  return staffEvents.reduce((latest, ev) => new Date(ev.event_time) > new Date(latest.event_time) ? ev : latest, staffEvents[0]);
+}
+function hasUnreadStaffReply(caseId, events){
+  const latest = getLatestStaffEvent(events);
+  if (!latest) return false;
+  const lastSeen = getLastSeenStaffReply(caseId);
+  if (!lastSeen) return true;
+  return new Date(latest.event_time) > new Date(lastSeen);
 }
 
 function HomePage({ setView, session, refreshCases }){
@@ -533,36 +601,57 @@ const CHECKLIST_BY_TYPE = {
   "ถูกหลอกโอนเงิน": ["สลิปการโอนเงินทั้งหมด","หลักฐานแชท/บทสนทนากับมิจฉาชีพ","ใบแจ้งความออนไลน์","บัตรประชาชน"]
 };
 
-function DashboardPage({ session, cases, docs, events, setView }){
-  const activeCase = cases && cases.length ? cases[0] : null;
+function DashboardPage({ session, cases, docs, events, setView, activeCase }){
+  const fallbackCase = cases && cases.length ? cases[0] : null;
+  const theCase = activeCase || fallbackCase;
   const displayName = session && session.user ? (session.user.user_metadata?.full_name || session.user.email) : "คุณผู้ใช้";
 
-  const checklist = activeCase ? (CHECKLIST_BY_TYPE[activeCase.event_type] || []) : [];
+  const checklist = theCase ? (CHECKLIST_BY_TYPE[theCase.event_type] || []) : [];
   const docCount = docs ? docs.length : 0;
   const checklistDone = Math.min(docCount, checklist.length);
   const recentDocs = (docs || []).slice(0, 3);
   const recentEvents = (events || []).slice(-3).reverse();
 
+  const latestStaffEvent = getLatestStaffEvent(events);
+  const showUnreadBanner = theCase && hasUnreadStaffReply(theCase.id, events);
+
   const [showOnboard, setShowOnboard] = useState(false);
   useEffect(()=>{
-    if (!activeCase) return;
+    if (!theCase) return;
     let seen = false;
     try { seen = localStorage.getItem("pordaiyat_onboard_seen") === "1"; } catch(e){}
     if (!seen) setShowOnboard(true);
-  }, [activeCase && activeCase.id]);
+  }, [theCase && theCase.id]);
   const dismissOnboard = () => {
     setShowOnboard(false);
     try { localStorage.setItem("pordaiyat_onboard_seen","1"); } catch(e){}
+  };
+
+  const goReadReply = () => {
+    if (latestStaffEvent) markStaffRepliesSeen(theCase.id, latestStaffEvent.event_time);
+    setView("timeline");
   };
 
   return React.createElement("div",{className:"fade-up"},
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.85rem",flexWrap:"wrap",gap:"1rem"}},
       React.createElement("div", null,
         React.createElement("h2",{style:{fontSize:23,marginBottom:5}}, "สวัสดี "+displayName),
-        React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)"}}, activeCase ? ("เคสล่าสุด: "+activeCase.event_type) : "ยังไม่มีเคสที่บันทึกไว้"))
+        React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)"}}, theCase ? ("เคสล่าสุด: "+theCase.event_type) : "ยังไม่มีเคสที่บันทึกไว้"))
     ),
 
-    !activeCase ? React.createElement("div",{className:"glass", style:{padding:"1.6rem",textAlign:"center"}},
+    showUnreadBanner && React.createElement("div",{className:"new-reply-banner"},
+      React.createElement("div",{className:"ring"}),
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",position:"relative",zIndex:1}},
+        React.createElement("div",{style:{width:50,height:50,borderRadius:"50%",background:"rgba(255,255,255,0.25)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:24}}, "📩"),
+        React.createElement("div",{style:{flex:1,minWidth:200}},
+          React.createElement("p",{style:{fontSize:16,fontWeight:900,color:"#fff",marginBottom:3}}, "🔔 มีคำตอบใหม่จากทีมงาน!"),
+          React.createElement("p",{style:{fontSize:12.5,color:"rgba(255,255,255,0.92)",lineHeight:1.5}},
+            latestStaffEvent ? ((latestStaffEvent.role_title||"ทีมงาน") + " ตอบว่า: \u201c" + (latestStaffEvent.event_text||"").split("\n")[0].slice(0,60) + "\u201d") : "")),
+        React.createElement("button",{className:"btn-primary", style:{flexShrink:0,background:"#fff",color:"#E8503D"}, onClick:goReadReply}, "ดูเลย")
+      )
+    ),
+
+    !theCase ? React.createElement("div",{className:"glass", style:{padding:"1.6rem",textAlign:"center"}},
       React.createElement("p",{style:{fontSize:14,color:"var(--text-secondary)",marginBottom:14}}, "ยังไม่มีเคสในระบบ ไปวิเคราะห์เคสแรกของคุณที่หน้าแรกได้เลยครับ"),
       React.createElement("button",{className:"btn-primary", style:{margin:"0 auto"}, onClick:()=>setView("home")}, "ไปวิเคราะห์เคส"))
 
@@ -572,19 +661,19 @@ function DashboardPage({ session, cases, docs, events, setView }){
       React.createElement("div",{className:"glass", style:{padding:"1.6rem 1.85rem",marginBottom:"1.6rem"}},
         React.createElement("div",{style:{display:"flex",alignItems:"baseline",justifyContent:"space-between",marginBottom:13}},
           React.createElement("span",{style:{fontSize:14,color:"var(--text-secondary)"}}, "ระดับความเร่งด่วน"),
-          React.createElement("span",{style:{fontSize:32,fontWeight:800,color:"var(--indigo)"}}, React.createElement(CountUp,{value:activeCase.urgency_pct||0}), "% · "+(activeCase.urgency_label||""))),
+          React.createElement("span",{style:{fontSize:32,fontWeight:800,color:"var(--indigo)"}}, React.createElement(CountUp,{value:theCase.urgency_pct||0}), "% · "+(theCase.urgency_label||""))),
         React.createElement("div",{style:{height:9,background:"rgba(46,31,76,0.08)",borderRadius:8,overflow:"hidden",marginBottom:14}},
-          React.createElement("div",{style:{height:"100%",width:(activeCase.urgency_pct||0)+"%",background:"linear-gradient(90deg,var(--indigo),var(--gold))",borderRadius:8,transition:"width 1.1s cubic-bezier(.16,1,.3,1)"}})),
+          React.createElement("div",{style:{height:"100%",width:(theCase.urgency_pct||0)+"%",background:"linear-gradient(90deg,var(--indigo),var(--gold))",borderRadius:8,transition:"width 1.1s cubic-bezier(.16,1,.3,1)"}})),
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,borderTop:"1px solid var(--border)",paddingTop:14}},
           React.createElement("div", null,
             React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:3}}, "สถานะ"),
-            React.createElement("p",{style:{fontSize:13.5,fontWeight:700}}, activeCase.status||"-")),
+            React.createElement("p",{style:{fontSize:13.5,fontWeight:700}}, theCase.status||"-")),
           React.createElement("div", null,
             React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:3}}, "ทราบเรื่องตั้งแต่"),
-            React.createElement("p",{style:{fontSize:13.5,fontWeight:700}}, activeCase.event_date || "ไม่ได้ระบุไว้")),
+            React.createElement("p",{style:{fontSize:13.5,fontWeight:700}}, theCase.event_date || "ไม่ได้ระบุไว้")),
           React.createElement("div",{style:{gridColumn:"1 / -1"}},
             React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:3}}, "รายละเอียดที่บันทึกไว้"),
-            React.createElement("p",{style:{fontSize:13.5,lineHeight:1.6}}, activeCase.detail || "ไม่ได้กรอกรายละเอียดไว้")))
+            React.createElement("p",{style:{fontSize:13.5,lineHeight:1.6}}, theCase.detail || "ไม่ได้กรอกรายละเอียดไว้")))
       ),
 
       showOnboard && React.createElement("div",{className:"glass", style:{padding:"1.6rem 1.85rem",marginBottom:"1.6rem",borderColor:"rgba(74,58,255,0.3)",background:"linear-gradient(135deg,rgba(74,58,255,0.06),var(--surface))"}},
@@ -734,6 +823,15 @@ function TimelinePage({ activeCase, events, onAdd }){
     })();
   }, []);
 
+  // เมื่อลูกค้าเปิดดูไทม์ไลน์ ให้ถือว่าได้อ่านคำตอบจากทีมงานล่าสุดแล้ว (ลบจุดแจ้งเตือนที่เมนู)
+  useEffect(()=>{
+    if (!activeCase) return;
+    const latest = getLatestStaffEvent(events);
+    if (latest) markStaffRepliesSeen(activeCase.id, latest.event_time);
+  }, [activeCase && activeCase.id, events.length]);
+
+  const lastSeenBeforeOpen = activeCase ? getLastSeenStaffReply(activeCase.id) : null;
+
   return React.createElement("div",{className:"fade-up"},
     React.createElement("h2",{style:{fontSize:21,marginBottom:"1.6rem"}}, "ไทม์ไลน์เคสของคุณ"),
     !activeCase ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "สร้างเคสก่อนจากหน้าแรก ถึงจะเพิ่มไทม์ไลน์ได้") :
@@ -748,11 +846,16 @@ function TimelinePage({ activeCase, events, onAdd }){
         ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14,marginBottom:"1.6rem"}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์")
         : React.createElement("div",{style:{position:"relative",paddingLeft:28,marginBottom:"1.6rem"}},
             React.createElement("div",{style:{position:"absolute",left:6,top:6,bottom:6,width:2,background:"linear-gradient(180deg,var(--indigo),var(--border))"}}),
-            events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}, className: ev.is_staff?"staff-entry":""},
-              React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
-              ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 " + (ev.role_title || "ทีมงาน")) : null,
-              React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
-              React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text)))),
+            events.map(ev=>{
+              const isUnreadStaff = ev.is_staff && lastSeenBeforeOpen && new Date(ev.event_time) > new Date(lastSeenBeforeOpen);
+              const isUnreadStaffNoHistory = ev.is_staff && !lastSeenBeforeOpen;
+              const shouldGlow = isUnreadStaff || isUnreadStaffNoHistory;
+              return React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem",padding: shouldGlow ? "10px 10px 10px 4px" : "0"}, className: (ev.is_staff?"staff-entry ":"") + (shouldGlow?"glow-highlight":"")},
+                React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
+                ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 " + (ev.role_title || "ทีมงาน")) : null,
+                React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
+                React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text));
+            })),
 
       /* ===== โซนเจ้าหน้าที่ — โชว์ให้เห็นเฉพาะอีเมลที่อยู่ในลิสต์พนักงานจริงในฐานข้อมูลเท่านั้น ===== */
       staffChecked && staffInfo && React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",background:"linear-gradient(135deg,rgba(242,169,59,0.08),var(--surface))",borderColor:"rgba(242,169,59,0.3)"}},
@@ -816,7 +919,7 @@ const PACKS = [
   {name:"Premium", price:1290, unit:"/ เดือน", desc:"ดูแลเคสแบบใกล้ชิดที่สุด",
    features:["โทรปรึกษาผู้เชี่ยวชาญไม่จำกัดครั้ง","ผู้ช่วยส่วนตัวติดตามเคส","ตรวจเอกสารให้โดยทีมงาน","แชทสนับสนุนตลอดเวลา"], bookable:true}
 ];
-function HelpPage(){
+function HelpPage({ activeCase }){
   const [modalOpen, setModalOpen] = useState(false);
   const [bstep, setBstep] = useState(1);
   const [packName, setPackName] = useState("โทรด่วน");
@@ -827,10 +930,15 @@ function HelpPage(){
   const [phone, setPhone] = useState("");
   const [slipFile, setSlipFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [usingFreeCall, setUsingFreeCall] = useState(false);
+
+  const hasFreeCall = !!(activeCase && activeCase.free_call_credit);
 
   const openBooking = (pName, pAmount) => {
     const isSubscription = (pName === "Pro" || pName === "Premium");
-    setPackName(pName); setAmount(pAmount);
+    const freeCallNow = hasFreeCall && pName === "โทรด่วน";
+    setUsingFreeCall(freeCallNow);
+    setPackName(pName); setAmount(freeCallNow ? 0 : pAmount);
     setUrgency(isSubscription ? "subscription" : null);
     setScheduledTime("");
     setName(""); setPhone(""); setSlipFile(null);
@@ -839,14 +947,24 @@ function HelpPage(){
   };
 
   const submitBooking = async () => {
-    if (!slipFile) { alert("กรุณาแนบสลิปการโอนเงินก่อนกดยืนยันครับ"); return; }
+    if (!usingFreeCall && !slipFile) { alert("กรุณาแนบสลิปการโอนเงินก่อนกดยืนยันครับ"); return; }
     setSubmitting(true);
-    await db.insertBooking({ contact_name:name, contact_phone:phone, pack_name:packName, amount, urgency, scheduled_time:scheduledTime||null, payment_status:"รอตรวจสอบ" });
+    await db.insertBooking({ contact_name:name, contact_phone:phone, pack_name:packName, amount, urgency, scheduled_time:scheduledTime||null, payment_status: usingFreeCall ? "ใช้สิทธิ์โทรฟรี" : "รอตรวจสอบ" });
+    if (usingFreeCall && activeCase){
+      await db.setFreeCallCredit(activeCase.id, false);
+    }
     setSubmitting(false);
     setBstep(4);
   };
 
   return React.createElement("div",{className:"fade-up"},
+    hasFreeCall && React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.7rem",marginBottom:"1.3rem",display:"flex",alignItems:"center",gap:"1.2rem",flexWrap:"wrap",background:"linear-gradient(135deg,rgba(242,169,59,0.14),var(--surface))",borderColor:"rgba(242,169,59,0.4)"}},
+      React.createElement("div",{style:{width:42,height:42,borderRadius:"50%",background:"rgba(242,169,59,0.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20}}, "🎁"),
+      React.createElement("div",{style:{flex:1,minWidth:200}},
+        React.createElement("p",{style:{fontSize:14,fontWeight:800,marginBottom:2}}, "คุณมีสิทธิ์โทรปรึกษาฟรี 1 ครั้ง!"),
+        React.createElement("p",{style:{fontSize:12,color:"var(--text-secondary)"}}, "ทีมงานมอบสิทธิ์นี้ให้กับเคสของคุณ ใช้ได้เลยไม่มีค่าใช้จ่าย")),
+      React.createElement("button",{className:"btn-rainbow", style:{flexShrink:0}, onClick:()=>openBooking("โทรด่วน",299)}, "ใช้สิทธิ์เลย")),
+
     React.createElement("div",{className:"glass", style:{padding:"2rem 2.2rem",marginBottom:"2rem",display:"flex",alignItems:"center",gap:"1.75rem",flexWrap:"wrap",background:"linear-gradient(135deg,rgba(255,111,89,0.08),var(--surface))",borderColor:"rgba(255,111,89,0.25)"}},
       React.createElement("div",{style:{flex:1,minWidth:220}},
         React.createElement("h2",{style:{fontSize:19,marginBottom:5}}, "ต้องการความช่วยเหลือตอนนี้เลยไหม"),
@@ -892,7 +1010,16 @@ function HelpPage(){
             React.createElement("button",{className:"btn-ghost", style:{flex:1,justifyContent:"center"}, onClick:()=> urgency==="subscription" ? setModalOpen(false) : setBstep(1)}, urgency==="subscription" ? "ปิด" : "ย้อนกลับ"),
             React.createElement("button",{className:"btn-primary", style:{flex:1.5,justifyContent:"center"}, onClick:()=>{ if(!name||!phone){alert("กรุณากรอกชื่อและเบอร์โทรครับ");return;} setBstep(3); }}, "ถัดไป"))),
 
-        bstep===3 && React.createElement("div", null,
+        bstep===3 && usingFreeCall && React.createElement("div", null,
+          React.createElement("div",{style:{textAlign:"center",padding:"1rem 0"}},
+            React.createElement("div",{style:{width:64,height:64,borderRadius:"50%",background:"rgba(242,169,59,0.15)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:30}}, "🎁"),
+            React.createElement("h3",{style:{fontSize:18,marginBottom:8}}, "ใช้สิทธิ์โทรปรึกษาฟรี"),
+            React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)",lineHeight:1.7,marginBottom:"1.5rem"}}, "ทีมงานมอบสิทธิ์โทรปรึกษาฟรี 1 ครั้งให้กับเคสของคุณ ไม่มีค่าใช้จ่ายใดๆ ครับ"),
+            React.createElement("p",{style:{fontSize:26,fontWeight:900,color:"var(--gold)",marginBottom:"1.5rem"}}, "฿0")),
+          React.createElement("button",{className:"btn-primary", style:{width:"100%",justifyContent:"center",marginBottom:10}, onClick:submitBooking, disabled:submitting}, submitting?"กำลังบันทึก...":"ยืนยันการนัดหมาย"),
+          React.createElement("button",{className:"btn-ghost", style:{width:"100%",justifyContent:"center"}, onClick:()=>setBstep(2)}, "ย้อนกลับ")),
+
+        bstep===3 && !usingFreeCall && React.createElement("div", null,
           React.createElement("h3",{style:{fontSize:18,marginBottom:6}}, "ชำระเงิน"),
           React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)",marginBottom:"1.3rem"}}, "สแกน QR หรือโอนผ่านเลขบัญชีด้านล่าง"),
           React.createElement("div",{style:{width:170,height:170,margin:"0 auto 1rem",borderRadius:14,border:"1.5px dashed var(--border-strong)",display:"flex",alignItems:"center",justifyContent:"center"}},
@@ -918,7 +1045,9 @@ function HelpPage(){
             React.createElement("i",{className:"ti ti-check", style:{fontSize:24,color:"#1B9E5A"}})),
           React.createElement("h3",{style:{fontSize:19,marginBottom:8}}, urgency==="subscription" ? "สมัครแพ็กเกจเรียบร้อยแล้ว" : "นัดหมายเรียบร้อยแล้ว"),
           React.createElement("p",{style:{fontSize:13.5,color:"var(--text-secondary)",lineHeight:1.7,marginBottom:"1.5rem"}},
-            urgency==="subscription"
+            usingFreeCall
+              ? React.createElement(React.Fragment, null, "ทางทีมที่ปรึกษาจะโทรหาคุณ ", React.createElement("strong",null,name), " ที่เบอร์ ", React.createElement("strong",null,phone), " ", React.createElement("br"), (urgency==="urgent"?"ภายใน 15 นาทีนี้":(scheduledTime||"ตามเวลาที่นัดหมาย")), " — ใช้สิทธิ์โทรฟรีเรียบร้อยแล้วครับ 🎁")
+              : urgency==="subscription"
               ? React.createElement(React.Fragment, null, "ทีมงานจะตรวจสอบการชำระเงินของคุณ ", React.createElement("strong",null,name), " และเปิดสิทธิ์แพ็กเกจ ", React.createElement("strong",null,packName), " ให้ภายในไม่นาน จะติดต่อกลับที่เบอร์ ", React.createElement("strong",null,phone))
               : React.createElement(React.Fragment, null, "ทางทีมที่ปรึกษาจะโทรหาคุณ ", React.createElement("strong",null,name), " ที่เบอร์ ", React.createElement("strong",null,phone), React.createElement("br"),
                   urgency==="urgent"?"ภายใน 15 นาทีนี้":(scheduledTime||"ตามเวลาที่นัดหมาย"))),
@@ -975,7 +1104,33 @@ function AdminPage(){
   const openCase = async (c) => {
     setSelectedCase(c);
     const evts = await db.listEventsForAdmin(c.id);
-    setEvents(evts);
+
+    // ถ้าแอดมินยังไม่เคยเปิดเคสนี้มาก่อน (admin_first_seen_at ยังไม่มีค่า) ให้ตอบรับอัตโนมัติทันที
+    if (!c.admin_first_seen_at){
+      const autoReplyText = buildAdminAutoReply(c);
+      const autoRow = await db.insertEventAsStaff(c.id, autoReplyText, c.user_id, myRoleTitle);
+      const updatedCase = await db.markAdminFirstSeen(c.id);
+      setEvents([...evts, autoRow]);
+      const mergedCase = updatedCase || {...c, admin_first_seen_at: nowISO()};
+      setSelectedCase(mergedCase);
+      setAllCases(prev => prev.map(x => x.id===c.id ? mergedCase : x));
+    } else {
+      setEvents(evts);
+    }
+  };
+
+  const toggleFreeCall = async () => {
+    if (!selectedCase) return;
+    const newValue = !selectedCase.free_call_credit;
+    const updated = await db.setFreeCallCredit(selectedCase.id, newValue);
+    if (updated){
+      setSelectedCase({...selectedCase, free_call_credit:newValue});
+      setAllCases(prev => prev.map(c => c.id===selectedCase.id ? {...c, free_call_credit:newValue} : c));
+      if (newValue){
+        const row = await db.insertEventAsStaff(selectedCase.id, "ทีมงานมอบสิทธิ์โทรปรึกษาฟรี 1 ครั้งให้กับเคสนี้", selectedCase.user_id, myRoleTitle);
+        setEvents(prev=>[...prev, row]);
+      }
+    }
   };
 
   const postAsStaff = async () => {
@@ -1014,14 +1169,20 @@ function AdminPage(){
       React.createElement("button",{className:"btn-ghost", style:{marginBottom:"1.3rem"}, onClick:()=>{setSelectedCase(null); setEvents([]);}},
         React.createElement("i",{className:"ti ti-arrow-left"}), "กลับไปรายชื่อเคส"),
       React.createElement("div",{className:"glass", style:{padding:"1.5rem 1.7rem",marginBottom:"1.6rem"}},
-        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:14}},
           React.createElement("div", null,
             React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:4}}, "เคส #" + (selectedCase.id||"").slice(0,8)),
             React.createElement("p",{style:{fontSize:17,fontWeight:800,marginBottom:6}}, selectedCase.event_type),
             React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)",marginBottom:10}}, selectedCase.detail || "ไม่มีรายละเอียดเพิ่มเติม"),
-            React.createElement("span",{style:{fontSize:11.5,fontWeight:800,padding:"4px 12px",borderRadius:20,background: isClosed?"rgba(27,158,90,0.12)":"rgba(74,58,255,0.1)",color: isClosed?"#1B9E5A":"var(--indigo)"}}, selectedCase.status || "เปิดเคส")),
+            React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+              React.createElement("span",{style:{fontSize:11.5,fontWeight:800,padding:"4px 12px",borderRadius:20,background: isClosed?"rgba(27,158,90,0.12)":"rgba(74,58,255,0.1)",color: isClosed?"#1B9E5A":"var(--indigo)"}}, selectedCase.status || "เปิดเคส"),
+              selectedCase.free_call_credit ? React.createElement("span",{style:{fontSize:11.5,fontWeight:800,padding:"4px 12px",borderRadius:20,background:"rgba(242,169,59,0.15)",color:"var(--gold)"}}, "🎁 มีสิทธิ์โทรฟรี") : null)),
           !isClosed && React.createElement("button",{className:"btn-primary", style:{flexShrink:0,background:"linear-gradient(135deg,#1B9E5A,#157A46)"}, onClick:closeCase},
-            React.createElement("i",{className:"ti ti-circle-check"}), "ปิดจบงาน"))),
+            React.createElement("i",{className:"ti ti-circle-check"}), "ปิดจบงาน")),
+        React.createElement("div",{style:{borderTop:"1px solid var(--border)",paddingTop:12}},
+          React.createElement("button",{className:"btn-ghost", style:{fontSize:12.5}, onClick:toggleFreeCall},
+            React.createElement("i",{className:"ti ti-phone-check"}),
+            selectedCase.free_call_credit ? "ยกเลิกสิทธิ์โทรฟรี" : "🎁 ให้สิทธิ์โทรปรึกษาฟรี 1 ครั้ง"))),
 
       (!events || events.length===0)
         ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14,marginBottom:"1.6rem"}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์เคสนี้")
@@ -1052,6 +1213,8 @@ function AdminPage(){
             React.createElement("div", null,
               React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:3}},
                 React.createElement("p",{style:{fontSize:14,fontWeight:800}}, c.event_type),
+                !c.admin_first_seen_at ? React.createElement("span",{style:{fontSize:10.5,fontWeight:800,padding:"2px 9px",borderRadius:10,background:"rgba(255,111,89,0.15)",color:"var(--coral)"}}, "ใหม่") : null,
+                c.free_call_credit ? React.createElement("span",{style:{fontSize:10.5,fontWeight:800,padding:"2px 9px",borderRadius:10,background:"rgba(242,169,59,0.15)",color:"var(--gold)"}}, "🎁 โทรฟรี") : null,
                 c.status==="ปิดเคสแล้ว" ? React.createElement("span",{style:{fontSize:10.5,fontWeight:800,padding:"2px 9px",borderRadius:10,background:"rgba(27,158,90,0.12)",color:"#1B9E5A"}}, "ปิดแล้ว") : null),
               React.createElement("p",{style:{fontSize:12,color:"var(--text-secondary)"}}, (c.detail||"ไม่มีรายละเอียด").slice(0,80)),
               React.createElement("p",{style:{fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",marginTop:4}}, "#"+(c.id||"").slice(0,8)+" · "+new Date(c.created_at).toLocaleDateString("th-TH"))),
@@ -1101,6 +1264,8 @@ function App({ session }){
   }, []);
   useEffect(()=>{ refreshEvents(); }, [activeCase && activeCase.id]);
 
+  const hasUnread = activeCase ? hasUnreadStaffReply(activeCase.id, events) : false;
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1115,17 +1280,17 @@ function App({ session }){
   };
 
   return React.createElement(React.Fragment, null,
-    React.createElement(TopNav, {view, setView, session, isStaff}),
+    React.createElement(TopNav, {view, setView, session, isStaff, hasUnread}),
     React.createElement("button",{id:"sos-btn", onClick:()=>setView("help")},
       React.createElement("i",{className:"ti ti-headset"}), "ขอความช่วยเหลือด่วน"),
     React.createElement("div",{className:"wrap"},
       React.createElement("div",{className:"page"},
         view==="home" && React.createElement(HomePage, {setView, session, refreshCases}),
-        view==="dashboard" && React.createElement(DashboardPage, {session, cases, docs, events, setView}),
+        view==="dashboard" && React.createElement(DashboardPage, {session, cases, docs, events, setView, activeCase}),
         view==="documents" && React.createElement(DocumentsPage, {docs, onUpload:handleUpload, uploading}),
         view==="timeline" && React.createElement(TimelinePage, {activeCase, events, onAdd:handleAddEvent}),
         view==="knowledge" && React.createElement(KnowledgePage, null),
-        view==="help" && React.createElement(HelpPage, null),
+        view==="help" && React.createElement(HelpPage, {activeCase}),
         view==="admin" && isStaff && React.createElement(AdminPage, null)
       ))
   );
