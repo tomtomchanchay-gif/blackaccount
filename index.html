@@ -171,14 +171,14 @@ const db = {
     const local = localGet();
     return ((local && local.events) || []).filter(e=>e.case_id===caseId);
   },
-  async insertEvent(caseId, text, isStaff){
-    const row = { id: uid(), case_id: caseId, event_text: text, event_time: nowISO(), is_staff: !!isStaff };
+  async insertEvent(caseId, text, isStaff, roleTitle){
+    const row = { id: uid(), case_id: caseId, event_text: text, event_time: nowISO(), is_staff: !!isStaff, role_title: roleTitle || null };
     if (sb && currentUser){
       row.user_id = currentUser.id;
       let { data, error } = await sb.from("timeline_events").insert(row).select().single();
       if (error){
-        console.error("insertEvent error, retrying without is_staff column:", error);
-        // เผื่อกรณียังไม่ได้รัน SQL เพิ่มคอลัมน์ is_staff ในฐานข้อมูล ลองบันทึกใหม่แบบไม่มีฟิลด์นี้
+        console.error("insertEvent error, retrying without is_staff/role_title columns:", error);
+        // เผื่อกรณียังไม่ได้รัน SQL เพิ่มคอลัมน์ในฐานข้อมูล ลองบันทึกใหม่แบบไม่มีฟิลด์เหล่านี้
         const fallbackRow = { id: row.id, case_id: row.case_id, event_text: row.event_text, event_time: row.event_time, user_id: row.user_id };
         const retry = await sb.from("timeline_events").insert(fallbackRow).select().single();
         if (retry.error){ console.error("insertEvent fallback also failed:", retry.error); return row; }
@@ -232,12 +232,13 @@ const db = {
   async checkIsStaff(){
     // เช็คว่าอีเมลของผู้ใช้ที่ login อยู่นี้ อยู่ในลิสต์เจ้าหน้าที่ของ Supabase หรือไม่
     // RLS ของตาราง staff_members จะอนุญาตให้เห็นแค่แถวของอีเมลตัวเองเท่านั้น
-    if (!sb || !currentUser || !currentUser.email) return false;
+    // คืนค่าเป็น object {email, full_name, role_title} ถ้าเป็นเจ้าหน้าที่ หรือ null ถ้าไม่ใช่
+    if (!sb || !currentUser || !currentUser.email) return null;
     try {
-      const { data, error } = await sb.from("staff_members").select("email").eq("email", currentUser.email).maybeSingle();
-      if (error) { console.error("checkIsStaff error:", error); return false; }
-      return !!data;
-    } catch(e){ return false; }
+      const { data, error } = await sb.from("staff_members").select("email, full_name, role_title").eq("email", currentUser.email).maybeSingle();
+      if (error) { console.error("checkIsStaff error:", error); return null; }
+      return data || null;
+    } catch(e){ return null; }
   },
   async listAllCases(){
     // ใช้สำหรับเจ้าหน้าที่เท่านั้น — RLS ฝั่ง Supabase จะอนุญาตให้ query นี้คืนผลทุกเคส
@@ -253,20 +254,33 @@ const db = {
     if (error){ console.error("listEventsForAdmin error:", error); return []; }
     return data || [];
   },
-  async insertEventAsStaff(caseId, text, targetUserId){
+  async insertEventAsStaff(caseId, text, targetUserId, roleTitle){
     // สำหรับเจ้าหน้าที่โพสต์ลงเคสของ "คนอื่น" — ใส่ user_id เป็นของเจ้าของเคส (targetUserId)
     // ไม่ใช่ user_id ของเจ้าหน้าที่เอง เพื่อให้ความเป็นเจ้าของข้อมูลถูกต้อง
-    const row = { id: uid(), case_id: caseId, event_text: text, event_time: nowISO(), is_staff: true, user_id: targetUserId };
+    const row = { id: uid(), case_id: caseId, event_text: text, event_time: nowISO(), is_staff: true, role_title: roleTitle || "ทีมงาน", user_id: targetUserId };
     if (!sb) return row;
     let { data, error } = await sb.from("timeline_events").insert(row).select().single();
     if (error){
-      console.error("insertEventAsStaff error, retrying without is_staff column:", error);
+      console.error("insertEventAsStaff error, retrying without is_staff/role_title columns:", error);
       const fallbackRow = { id: row.id, case_id: row.case_id, event_text: row.event_text, event_time: row.event_time, user_id: row.user_id };
       const retry = await sb.from("timeline_events").insert(fallbackRow).select().single();
       if (retry.error){ console.error("insertEventAsStaff fallback also failed:", retry.error); return row; }
       return retry.data;
     }
     return data;
+  },
+  async updateCaseStatus(caseId, status){
+    if (sb){
+      const { data, error } = await sb.from("cases").update({status}).eq("id", caseId).select().single();
+      if (error){ console.error("updateCaseStatus error:", error); return null; }
+      return data;
+    }
+    const local = localGet();
+    if (local && local.cases){
+      local.cases = local.cases.map(c => c.id===caseId ? {...c, status} : c);
+      localSet(local);
+    }
+    return { id: caseId, status };
   }
 };
 
@@ -598,6 +612,17 @@ function DashboardPage({ session, cases, docs, events, setView }){
             "เข้าใจแล้ว ไปไทม์ไลน์ต่อ", React.createElement("i",{className:"ti ti-arrow-right"})))
       ),
 
+      /* แจ้งเตือนให้รีบอัปโหลดเอกสาร — โผล่ทุกครั้งที่เข้ามาจนกว่า checklist จะครบ (ไม่ใช่แค่ครั้งแรกเหมือนข้างบน) */
+      !showOnboard && checklist.length > 0 && checklistDone < checklist.length && React.createElement("div",{className:"glass", style:{padding:"1.3rem 1.6rem",marginBottom:"1.6rem",display:"flex",alignItems:"center",gap:"1rem",flexWrap:"wrap",background:"linear-gradient(135deg,rgba(242,169,59,0.1),var(--surface))",borderColor:"rgba(242,169,59,0.35)"}},
+        React.createElement("div",{style:{width:38,height:38,borderRadius:"50%",background:"rgba(242,169,59,0.18)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+          React.createElement("i",{className:"ti ti-alert-triangle", style:{fontSize:18,color:"var(--gold)"}})),
+        React.createElement("div",{style:{flex:1,minWidth:200}},
+          React.createElement("p",{style:{fontSize:13.5,fontWeight:800,marginBottom:2}}, "เหลืออีก " + (checklist.length-checklistDone) + " รายการให้อัปโหลด"),
+          React.createElement("p",{style:{fontSize:12,color:"var(--text-secondary)"}}, "ยิ่งอัปโหลดเอกสารครบเร็ว เคสของคุณจะดำเนินการได้เร็วขึ้นครับ")),
+        React.createElement("button",{className:"btn-rainbow", style:{flexShrink:0}, onClick:()=>setView("documents")},
+          React.createElement("i",{className:"ti ti-upload"}), "อัปโหลดตอนนี้")
+      ),
+
       /* แถวการ์ด: Checklist / เอกสาร / ไทม์ไลน์ */
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14,marginBottom:"1.6rem"}},
 
@@ -676,11 +701,14 @@ function DocThumbnail({ doc }){
 
 function DocumentsPage({ docs, onUpload, uploading }){
   return React.createElement("div",{className:"fade-up"},
-    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1.6rem",flexWrap:"wrap",gap:"1rem"}},
+    React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"0.5rem",flexWrap:"wrap",gap:"1rem"}},
       React.createElement("h2",{style:{fontSize:21}}, "เอกสารของคุณ"),
       React.createElement("label",{className:"btn-primary", style:{cursor:"pointer"}},
         uploading?"กำลังอัปโหลด...":"อัปโหลดไฟล์",
         React.createElement("input",{type:"file", style:{display:"none"}, onChange:onUpload, disabled:uploading}))),
+    React.createElement("p",{style:{fontSize:12.5,color:"var(--text-secondary)",marginBottom:"1.6rem",display:"flex",alignItems:"center",gap:6}},
+      React.createElement("i",{className:"ti ti-bolt", style:{color:"var(--gold)",fontSize:15}}),
+      "ยิ่งอัปโหลดครบเร็ว เคสของคุณจะดำเนินการได้เร็วขึ้นครับ"),
     (!docs || docs.length===0)
       ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "ยังไม่มีเอกสารในระบบ")
       : React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14}},
@@ -694,14 +722,14 @@ function DocumentsPage({ docs, onUpload, uploading }){
 /* ===== Timeline ===== */
 function TimelinePage({ activeCase, events, onAdd }){
   const [text, setText] = useState("");
-  const [isStaff, setIsStaff] = useState(false);
+  const [staffInfo, setStaffInfo] = useState(null);
   const [staffChecked, setStaffChecked] = useState(false);
   const [staffText, setStaffText] = useState("");
 
   useEffect(()=>{
     (async ()=>{
       const result = await db.checkIsStaff();
-      setIsStaff(result);
+      setStaffInfo(result);
       setStaffChecked(true);
     })();
   }, []);
@@ -722,16 +750,16 @@ function TimelinePage({ activeCase, events, onAdd }){
             React.createElement("div",{style:{position:"absolute",left:6,top:6,bottom:6,width:2,background:"linear-gradient(180deg,var(--indigo),var(--border))"}}),
             events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}, className: ev.is_staff?"staff-entry":""},
               React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
-              ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 ทีมงาน") : null,
+              ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 " + (ev.role_title || "ทีมงาน")) : null,
               React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
               React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text)))),
 
       /* ===== โซนเจ้าหน้าที่ — โชว์ให้เห็นเฉพาะอีเมลที่อยู่ในลิสต์พนักงานจริงในฐานข้อมูลเท่านั้น ===== */
-      staffChecked && isStaff && React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",background:"linear-gradient(135deg,rgba(242,169,59,0.08),var(--surface))",borderColor:"rgba(242,169,59,0.3)"}},
-        React.createElement("p",{style:{fontSize:13,fontWeight:800,marginBottom:10,display:"flex",alignItems:"center",gap:6}}, "👤 พิมพ์ในนามทีมงาน"),
+      staffChecked && staffInfo && React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",background:"linear-gradient(135deg,rgba(242,169,59,0.08),var(--surface))",borderColor:"rgba(242,169,59,0.3)"}},
+        React.createElement("p",{style:{fontSize:13,fontWeight:800,marginBottom:10,display:"flex",alignItems:"center",gap:6}}, "👤 พิมพ์ในนามทีมงาน (จะแสดงตำแหน่ง: " + (staffInfo.role_title || "ทีมงาน") + ")"),
         React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
           React.createElement("input",{type:"text", placeholder:"เช่น ธนาคารตอบกลับแล้ว อยู่ระหว่างตรวจสอบเอกสาร", value:staffText, onChange:e=>setStaffText(e.target.value), style:{flex:1,minWidth:200}}),
-          React.createElement("button",{className:"btn-primary", onClick:()=>{ if(staffText.trim()){ onAdd(staffText.trim(), true); setStaffText(""); } }}, "โพสต์ในนามทีมงาน")))
+          React.createElement("button",{className:"btn-primary", onClick:()=>{ if(staffText.trim()){ onAdd(staffText.trim(), true, staffInfo.role_title); setStaffText(""); } }}, "โพสต์ในนามทีมงาน")))
     )
   );
 }
@@ -932,12 +960,15 @@ function AdminPage(){
   const [staffText, setStaffText] = useState("");
   const [search, setSearch] = useState("");
   const [posting, setPosting] = useState(false);
+  const [myRoleTitle, setMyRoleTitle] = useState("ทีมงาน");
 
   useEffect(()=>{
     (async ()=>{
       const cs = await db.listAllCases();
       setAllCases(cs);
       setLoading(false);
+      const staffInfo = await db.checkIsStaff();
+      if (staffInfo && staffInfo.role_title) setMyRoleTitle(staffInfo.role_title);
     })();
   }, []);
 
@@ -950,10 +981,22 @@ function AdminPage(){
   const postAsStaff = async () => {
     if (!staffText.trim() || !selectedCase) return;
     setPosting(true);
-    const row = await db.insertEventAsStaff(selectedCase.id, staffText.trim(), selectedCase.user_id);
+    const row = await db.insertEventAsStaff(selectedCase.id, staffText.trim(), selectedCase.user_id, myRoleTitle);
     setEvents(prev=>[...prev, row]);
     setStaffText("");
     setPosting(false);
+  };
+
+  const closeCase = async () => {
+    if (!selectedCase) return;
+    if (!confirm("ยืนยันปิดเคสนี้ใช่ไหมครับ? ลูกค้าจะเห็นสถานะว่าปิดเคสแล้ว")) return;
+    const updated = await db.updateCaseStatus(selectedCase.id, "ปิดเคสแล้ว");
+    if (updated){
+      setSelectedCase({...selectedCase, status:"ปิดเคสแล้ว"});
+      setAllCases(prev => prev.map(c => c.id===selectedCase.id ? {...c, status:"ปิดเคสแล้ว"} : c));
+      const sysRow = await db.insertEventAsStaff(selectedCase.id, "ปิดเคสนี้แล้ว — ดำเนินการเสร็จสมบูรณ์", selectedCase.user_id, myRoleTitle);
+      setEvents(prev=>[...prev, sysRow]);
+    }
   };
 
   const filtered = allCases.filter(c =>
@@ -966,13 +1009,19 @@ function AdminPage(){
   if (loading) return React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "กำลังโหลดรายชื่อเคสทั้งหมด...");
 
   if (selectedCase) {
+    const isClosed = selectedCase.status === "ปิดเคสแล้ว";
     return React.createElement("div",{className:"fade-up"},
       React.createElement("button",{className:"btn-ghost", style:{marginBottom:"1.3rem"}, onClick:()=>{setSelectedCase(null); setEvents([]);}},
         React.createElement("i",{className:"ti ti-arrow-left"}), "กลับไปรายชื่อเคส"),
       React.createElement("div",{className:"glass", style:{padding:"1.5rem 1.7rem",marginBottom:"1.6rem"}},
-        React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:4}}, "เคส #" + (selectedCase.id||"").slice(0,8)),
-        React.createElement("p",{style:{fontSize:17,fontWeight:800,marginBottom:6}}, selectedCase.event_type),
-        React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)"}}, selectedCase.detail || "ไม่มีรายละเอียดเพิ่มเติม")),
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}},
+          React.createElement("div", null,
+            React.createElement("p",{style:{fontSize:11.5,color:"var(--text-muted)",marginBottom:4}}, "เคส #" + (selectedCase.id||"").slice(0,8)),
+            React.createElement("p",{style:{fontSize:17,fontWeight:800,marginBottom:6}}, selectedCase.event_type),
+            React.createElement("p",{style:{fontSize:13,color:"var(--text-secondary)",marginBottom:10}}, selectedCase.detail || "ไม่มีรายละเอียดเพิ่มเติม"),
+            React.createElement("span",{style:{fontSize:11.5,fontWeight:800,padding:"4px 12px",borderRadius:20,background: isClosed?"rgba(27,158,90,0.12)":"rgba(74,58,255,0.1)",color: isClosed?"#1B9E5A":"var(--indigo)"}}, selectedCase.status || "เปิดเคส")),
+          !isClosed && React.createElement("button",{className:"btn-primary", style:{flexShrink:0,background:"linear-gradient(135deg,#1B9E5A,#157A46)"}, onClick:closeCase},
+            React.createElement("i",{className:"ti ti-circle-check"}), "ปิดจบงาน"))),
 
       (!events || events.length===0)
         ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14,marginBottom:"1.6rem"}}, "ยังไม่มีเหตุการณ์ในไทม์ไลน์เคสนี้")
@@ -980,12 +1029,12 @@ function AdminPage(){
             React.createElement("div",{style:{position:"absolute",left:6,top:6,bottom:6,width:2,background:"linear-gradient(180deg,var(--indigo),var(--border))"}}),
             events.map(ev=>React.createElement("div",{key:ev.id, style:{position:"relative",marginBottom:"1.8rem"}, className: ev.is_staff?"staff-entry":""},
               React.createElement("div",{style:{position:"absolute",left:-28,top:2,width:13,height:13,borderRadius:"50%",background: ev.is_staff?"var(--gold)":"var(--indigo)",boxShadow: ev.is_staff?"0 0 0 3px rgba(242,169,59,0.25)":"0 0 0 3px rgba(74,58,255,0.18)"}}),
-              ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 ทีมงาน") : null,
+              ev.is_staff ? React.createElement("span",{className:"staff-badge"}, "👤 " + (ev.role_title || "ทีมงาน")) : null,
               React.createElement("p",{style:{fontSize:12,color:"var(--text-muted)",marginBottom:4,fontFamily:"var(--font-mono)"}}, new Date(ev.event_time).toLocaleString("th-TH")),
               React.createElement("p",{style:{fontSize:14.5,fontWeight:700,whiteSpace:"pre-line",lineHeight:1.6}}, ev.event_text)))),
 
-      React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",background:"linear-gradient(135deg,rgba(242,169,59,0.08),var(--surface))",borderColor:"rgba(242,169,59,0.3)"}},
-        React.createElement("p",{style:{fontSize:13,fontWeight:800,marginBottom:10,display:"flex",alignItems:"center",gap:6}}, "👤 ตอบในนามทีมงาน (เคสนี้)"),
+      !isClosed && React.createElement("div",{className:"glass", style:{padding:"1.4rem 1.6rem",background:"linear-gradient(135deg,rgba(242,169,59,0.08),var(--surface))",borderColor:"rgba(242,169,59,0.3)"}},
+        React.createElement("p",{style:{fontSize:13,fontWeight:800,marginBottom:10,display:"flex",alignItems:"center",gap:6}}, "👤 ตอบในนามทีมงาน (เคสนี้) — แสดงตำแหน่ง: " + myRoleTitle),
         React.createElement("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
           React.createElement("input",{type:"text", placeholder:"เช่น ธนาคารตอบกลับแล้ว อยู่ระหว่างตรวจสอบเอกสาร", value:staffText, onChange:e=>setStaffText(e.target.value), style:{flex:1,minWidth:200}}),
           React.createElement("button",{className:"btn-primary", onClick:postAsStaff, disabled:posting}, posting?"กำลังโพสต์...":"โพสต์")))
@@ -999,9 +1048,11 @@ function AdminPage(){
     filtered.length===0
       ? React.createElement("p",{style:{color:"var(--text-secondary)",fontSize:14}}, "ไม่พบเคสที่ตรงกับการค้นหา")
       : React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-          filtered.map(c=>React.createElement("div",{key:c.id, className:"glass", style:{padding:"1.1rem 1.4rem",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}, onClick:()=>openCase(c)},
+          filtered.map(c=>React.createElement("div",{key:c.id, className:"glass", style:{padding:"1.1rem 1.4rem",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10,opacity:c.status==="ปิดเคสแล้ว"?0.65:1}, onClick:()=>openCase(c)},
             React.createElement("div", null,
-              React.createElement("p",{style:{fontSize:14,fontWeight:800,marginBottom:3}}, c.event_type),
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:3}},
+                React.createElement("p",{style:{fontSize:14,fontWeight:800}}, c.event_type),
+                c.status==="ปิดเคสแล้ว" ? React.createElement("span",{style:{fontSize:10.5,fontWeight:800,padding:"2px 9px",borderRadius:10,background:"rgba(27,158,90,0.12)",color:"#1B9E5A"}}, "ปิดแล้ว") : null),
               React.createElement("p",{style:{fontSize:12,color:"var(--text-secondary)"}}, (c.detail||"ไม่มีรายละเอียด").slice(0,80)),
               React.createElement("p",{style:{fontSize:11,color:"var(--text-muted)",fontFamily:"var(--font-mono)",marginTop:4}}, "#"+(c.id||"").slice(0,8)+" · "+new Date(c.created_at).toLocaleDateString("th-TH"))),
             React.createElement("span",{style:{fontSize:13,fontWeight:800,color:"var(--indigo)"}}, (c.urgency_pct||0)+"%"))))
@@ -1058,8 +1109,8 @@ function App({ session }){
     setDocs(prev=>[row, ...prev]);
     setUploading(false);
   };
-  const handleAddEvent = async (text, isStaffPost) => {
-    const row = await db.insertEvent(activeCase.id, text, isStaffPost);
+  const handleAddEvent = async (text, isStaffPost, roleTitle) => {
+    const row = await db.insertEvent(activeCase.id, text, isStaffPost, roleTitle);
     setEvents(prev=>[...prev, row]);
   };
 
